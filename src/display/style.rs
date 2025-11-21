@@ -30,6 +30,38 @@ impl BackgroundColor {
     }
 }
 
+/// Represents a 24-bit RGB color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RgbColor {
+    pub(crate) r: u8,
+    pub(crate) g: u8,
+    pub(crate) b: u8,
+}
+
+impl RgbColor {
+    pub(crate) fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    /// Parse a hex color string like "#336699" or "336699" into an RgbColor.
+    pub(crate) fn from_hex(hex: &str) -> Result<Self, String> {
+        let hex = hex.trim_start_matches('#');
+
+        if hex.len() != 6 {
+            return Err(format!("Invalid hex color '{}': expected 6 characters (RRGGBB)", hex));
+        }
+
+        let r = u8::from_str_radix(&hex[0..2], 16)
+            .map_err(|_| format!("Invalid hex color '{}': invalid red component", hex))?;
+        let g = u8::from_str_radix(&hex[2..4], 16)
+            .map_err(|_| format!("Invalid hex color '{}': invalid green component", hex))?;
+        let b = u8::from_str_radix(&hex[4..6], 16)
+            .map_err(|_| format!("Invalid hex color '{}': invalid blue component", hex))?;
+
+        Ok(Self::new(r, g, b))
+    }
+}
+
 /// Find the largest byte offset in `s` that gives the longest
 /// starting substring whose display width does not exceed `width`.
 ///
@@ -315,17 +347,30 @@ pub(crate) fn novel_style(
     side: Side,
     background: BackgroundColor,
     use_background: bool,
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
 ) -> Style {
     if use_background {
-        // Use subtle gray background colors instead of red/green
-        // This works well in side-by-side view where position indicates add/remove
-        // Much less visually aggressive while preserving syntax highlighting
-        if background.is_dark() {
-            // Use bright_black (gray) for dark terminals
-            style.on_bright_black()
+        // Check if custom 24-bit RGB colors are provided
+        let custom_color = match side {
+            Side::Right => rgb_added,
+            Side::Left => rgb_removed,
+        };
+
+        if let Some(rgb) = custom_color {
+            // Use custom 24-bit RGB background color
+            style.on_truecolor(rgb.r, rgb.g, rgb.b)
         } else {
-            // Use black (appears as dark gray) for light terminals
-            style.on_black()
+            // Use subtle gray background colors instead of red/green
+            // This works well in side-by-side view where position indicates add/remove
+            // Much less visually aggressive while preserving syntax highlighting
+            if background.is_dark() {
+                // Use bright_black (gray) for dark terminals
+                style.on_bright_black()
+            } else {
+                // Use black (appears as dark gray) for light terminals
+                style.on_black()
+            }
         }
     } else {
         // Use foreground colors (original behavior)
@@ -392,6 +437,8 @@ pub(crate) fn color_positions(
     background_diff_colors: bool,
     file_format: &FileFormat,
     mps: &[MatchedPos],
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
 ) -> Vec<(SingleLineSpan, Style)> {
     let mut styles = vec![];
     for mp in mps {
@@ -457,7 +504,7 @@ pub(crate) fn color_positions(
                 }
 
                 // Apply diff colors (foreground or background based on flag)
-                style = novel_style(style, side, background, background_diff_colors);
+                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed);
 
                 // Apply bold/italic for specific tokens (if not already applied above)
                 if syntax_highlight
@@ -505,7 +552,7 @@ pub(crate) fn color_positions(
                     }
                 }
 
-                style = novel_style(style, side, background, background_diff_colors).bold();
+                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed).bold();
 
                 // Underline novel words inside comments in code, but
                 // don't apply it to every single line in plaintext.
@@ -547,7 +594,7 @@ pub(crate) fn color_positions(
                     }
                 }
 
-                style = novel_style(style, side, background, background_diff_colors);
+                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed);
 
                 if !background_diff_colors && syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
                     style = style.italic();
@@ -568,6 +615,8 @@ pub(crate) fn apply_colors(
     file_format: &FileFormat,
     background: BackgroundColor,
     mps: &[MatchedPos],
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
 ) -> Vec<String> {
     let styles = color_positions(
         side,
@@ -576,6 +625,8 @@ pub(crate) fn apply_colors(
         background_diff_colors,
         file_format,
         mps,
+        rgb_added,
+        rgb_removed,
     );
     let lines = split_on_newlines(s).collect::<Vec<_>>();
     style_lines(&lines, &styles)
@@ -649,7 +700,7 @@ pub(crate) fn apply_line_number_color(
             // and bold. This works well for syntactic diffs, where
             // most content is not bold.
             // Note: Line numbers always use foreground colors, not background colors
-            style = novel_style(style, side, display_options.background_color, false).bold();
+            style = novel_style(style, side, display_options.background_color, false, None, None).bold();
         } else {
             // For unchanged lines, dim the line numbers so it's
             // clearly separate from the content.

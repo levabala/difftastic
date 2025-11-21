@@ -12,7 +12,7 @@ use crossterm::tty::IsTty;
 use owo_colors::OwoColorize as _;
 
 use crate::{
-    display::style::{print_error, BackgroundColor},
+    display::style::{print_error, BackgroundColor, RgbColor},
     exit_codes::EXIT_BAD_ARGUMENTS,
     parse::guess_language::{language_override_from_name, LanguageOverride},
     version::VERSION,
@@ -48,6 +48,10 @@ pub(crate) struct DisplayOptions {
     pub(crate) syntax_highlight: bool,
     pub(crate) background_diff_colors: bool,
     pub(crate) sort_paths: bool,
+    /// Optional 24-bit RGB color for added content background (when background_diff_colors is on)
+    pub(crate) diff_color_added_bg: Option<RgbColor>,
+    /// Optional 24-bit RGB color for removed content background (when background_diff_colors is on)
+    pub(crate) diff_color_removed_bg: Option<RgbColor>,
 }
 
 pub(crate) const DEFAULT_TERMINAL_WIDTH: usize = 80;
@@ -65,6 +69,8 @@ impl Default for DisplayOptions {
             syntax_highlight: true,
             background_diff_colors: false,
             sort_paths: false,
+            diff_color_added_bg: None,
+            diff_color_removed_bg: None,
         }
     }
 }
@@ -262,6 +268,20 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .default_value("off")
                 .action(ArgAction::Set)
                 .help("Use background colors (red/green) for diff highlighting while preserving syntax highlighting foreground colors. When enabled, added/removed code will have colored backgrounds instead of colored text.")
+        )
+        .arg(
+            Arg::new("diff-color-added-bg").long("diff-color-added-bg")
+                .value_name("HEX")
+                .env("DFT_DIFF_COLOR_ADDED_BG")
+                .action(ArgAction::Set)
+                .help("Custom 24-bit RGB background color for added content in hex format (e.g., '336699' or '#336699'). Only used when --background-diff-colors is on. If not specified, uses default ANSI colors.")
+        )
+        .arg(
+            Arg::new("diff-color-removed-bg").long("diff-color-removed-bg")
+                .value_name("HEX")
+                .env("DFT_DIFF_COLOR_REMOVED_BG")
+                .action(ArgAction::Set)
+                .help("Custom 24-bit RGB background color for removed content in hex format (e.g., '663333' or '#663333'). Only used when --background-diff-colors is on. If not specified, uses default ANSI colors.")
         )
         .arg(
             Arg::new("exit-code").long("exit-code")
@@ -843,6 +863,26 @@ pub(crate) fn parse_args() -> Mode {
         .map(|s| s.as_str())
         == Some("on");
 
+    let diff_color_added_bg = matches
+        .get_one::<String>("diff-color-added-bg")
+        .and_then(|hex| match RgbColor::from_hex(hex) {
+            Ok(color) => Some(color),
+            Err(e) => {
+                print_error(&e, use_color);
+                std::process::exit(EXIT_BAD_ARGUMENTS);
+            }
+        });
+
+    let diff_color_removed_bg = matches
+        .get_one::<String>("diff-color-removed-bg")
+        .and_then(|hex| match RgbColor::from_hex(hex) {
+            Ok(color) => Some(color),
+            Err(e) => {
+                print_error(&e, use_color);
+                std::process::exit(EXIT_BAD_ARGUMENTS);
+            }
+        });
+
     let sort_paths = matches.get_flag("sort-paths");
 
     let graph_limit = *matches
@@ -958,6 +998,8 @@ pub(crate) fn parse_args() -> Mode {
                 syntax_highlight,
                 background_diff_colors,
                 sort_paths,
+                diff_color_added_bg,
+                diff_color_removed_bg,
             };
 
             let display_path = path.to_string_lossy().to_string();
@@ -1000,6 +1042,8 @@ pub(crate) fn parse_args() -> Mode {
         syntax_highlight,
         background_diff_colors,
         sort_paths,
+        diff_color_added_bg,
+        diff_color_removed_bg,
     };
 
     Mode::Diff {

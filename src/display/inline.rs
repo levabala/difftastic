@@ -34,6 +34,8 @@ pub(crate) fn print(
                 file_format,
                 display_options.background_color,
                 lhs_mps,
+                display_options.diff_color_added_bg,
+                display_options.diff_color_removed_bg,
             ),
             apply_colors(
                 rhs_src,
@@ -43,6 +45,8 @@ pub(crate) fn print(
                 file_format,
                 display_options.background_color,
                 rhs_mps,
+                display_options.diff_color_added_bg,
+                display_options.diff_color_removed_bg,
             ),
         )
     } else {

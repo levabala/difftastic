@@ -13,7 +13,7 @@ use crate::{
         hunks::{matched_lines_indexes_for_hunk, Hunk},
         style::{
             self, apply_colors, apply_line_number_color, color_positions, novel_style,
-            replace_tabs, split_and_apply, BackgroundColor,
+            replace_tabs, split_and_apply, BackgroundColor, RgbColor,
         },
     },
     hash::{DftHashMap, DftHashSet},
@@ -112,6 +112,8 @@ fn display_single_column(
             side,
             display_options.background_color,
             false,
+            None,
+            None,
         );
     }
 
@@ -283,6 +285,8 @@ fn highlight_positions(
     file_format: &FileFormat,
     lhs_mps: &[MatchedPos],
     rhs_mps: &[MatchedPos],
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
 ) -> (
     DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>>,
     DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>>,
@@ -294,6 +298,8 @@ fn highlight_positions(
         background_diff_colors,
         file_format,
         lhs_mps,
+        rgb_added,
+        rgb_removed,
     );
     // Preallocate the hashmap assuming the average line will have 2 items on it.
     let mut lhs_styles: DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>> =
@@ -310,6 +316,8 @@ fn highlight_positions(
         background_diff_colors,
         file_format,
         rhs_mps,
+        rgb_added,
+        rgb_removed,
     );
     let mut rhs_styles: DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>> =
         DftHashMap::default();
@@ -455,6 +463,8 @@ pub(crate) fn print(
                 file_format,
                 display_options.background_color,
                 lhs_mps,
+                display_options.diff_color_added_bg,
+                display_options.diff_color_removed_bg,
             ),
             apply_colors(
                 rhs_src,
@@ -464,6 +474,8 @@ pub(crate) fn print(
                 file_format,
                 display_options.background_color,
                 rhs_mps,
+                display_options.diff_color_added_bg,
+                display_options.diff_color_removed_bg,
             ),
         )
     } else {
@@ -536,6 +548,8 @@ pub(crate) fn print(
             file_format,
             lhs_mps,
             rhs_mps,
+            display_options.diff_color_added_bg,
+            display_options.diff_color_removed_bg,
         )
     } else {
         (DftHashMap::default(), DftHashMap::default())
