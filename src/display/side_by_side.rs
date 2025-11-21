@@ -106,7 +106,13 @@ fn display_single_column(
 
     let mut style = Style::new();
     if display_options.use_color {
-        style = novel_style(Style::new(), side, display_options.background_color);
+        // Always use foreground colors for single column display (never background)
+        style = novel_style(
+            Style::new(),
+            side,
+            display_options.background_color,
+            false,
+        );
     }
 
     for (i, line) in src_lines.iter().enumerate() {
@@ -273,6 +279,7 @@ pub(crate) fn lines_with_novel(
 fn highlight_positions(
     background: BackgroundColor,
     syntax_highlight: bool,
+    background_diff_colors: bool,
     file_format: &FileFormat,
     lhs_mps: &[MatchedPos],
     rhs_mps: &[MatchedPos],
@@ -284,6 +291,7 @@ fn highlight_positions(
         Side::Left,
         background,
         syntax_highlight,
+        background_diff_colors,
         file_format,
         lhs_mps,
     );
@@ -299,6 +307,7 @@ fn highlight_positions(
         Side::Right,
         background,
         syntax_highlight,
+        background_diff_colors,
         file_format,
         rhs_mps,
     );
@@ -442,6 +451,7 @@ pub(crate) fn print(
                 lhs_src,
                 Side::Left,
                 display_options.syntax_highlight,
+                display_options.background_diff_colors,
                 file_format,
                 display_options.background_color,
                 lhs_mps,
@@ -450,6 +460,7 @@ pub(crate) fn print(
                 rhs_src,
                 Side::Right,
                 display_options.syntax_highlight,
+                display_options.background_diff_colors,
                 file_format,
                 display_options.background_color,
                 rhs_mps,
@@ -521,6 +532,7 @@ pub(crate) fn print(
         highlight_positions(
             display_options.background_color,
             display_options.syntax_highlight,
+            display_options.background_diff_colors,
             file_format,
             lhs_mps,
             rhs_mps,

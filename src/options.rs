@@ -46,6 +46,7 @@ pub(crate) struct DisplayOptions {
     pub(crate) terminal_width: usize,
     pub(crate) num_context_lines: u32,
     pub(crate) syntax_highlight: bool,
+    pub(crate) background_diff_colors: bool,
     pub(crate) sort_paths: bool,
 }
 
@@ -62,6 +63,7 @@ impl Default for DisplayOptions {
             terminal_width: DEFAULT_TERMINAL_WIDTH,
             num_context_lines: 3,
             syntax_highlight: true,
+            background_diff_colors: false,
             sort_paths: false,
         }
     }
@@ -251,6 +253,15 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .default_value("on")
                 .action(ArgAction::Set)
                 .help("Enable or disable syntax highlighting.")
+        )
+        .arg(
+            Arg::new("background-diff-colors").long("background-diff-colors")
+                .value_name("on/off")
+                .env("DFT_BACKGROUND_DIFF_COLORS")
+                .value_parser(["on", "off"])
+                .default_value("off")
+                .action(ArgAction::Set)
+                .help("Use background colors (red/green) for diff highlighting while preserving syntax highlighting foreground colors. When enabled, added/removed code will have colored backgrounds instead of colored text.")
         )
         .arg(
             Arg::new("exit-code").long("exit-code")
@@ -827,6 +838,11 @@ pub(crate) fn parse_args() -> Mode {
         .map(|s| s.as_str())
         == Some("on");
 
+    let background_diff_colors = matches
+        .get_one::<String>("background-diff-colors")
+        .map(|s| s.as_str())
+        == Some("on");
+
     let sort_paths = matches.get_flag("sort-paths");
 
     let graph_limit = *matches
@@ -940,6 +956,7 @@ pub(crate) fn parse_args() -> Mode {
                 terminal_width,
                 num_context_lines,
                 syntax_highlight,
+                background_diff_colors,
                 sort_paths,
             };
 
@@ -981,6 +998,7 @@ pub(crate) fn parse_args() -> Mode {
         terminal_width,
         num_context_lines,
         syntax_highlight,
+        background_diff_colors,
         sort_paths,
     };
 

@@ -310,16 +310,35 @@ fn style_lines(lines: &[&str], styles: &[(SingleLineSpan, Style)]) -> Vec<String
     styled_lines
 }
 
-pub(crate) fn novel_style(style: Style, side: Side, background: BackgroundColor) -> Style {
-    if background.is_dark() {
-        match side {
-            Side::Left => style.bright_red(),
-            Side::Right => style.bright_green(),
+pub(crate) fn novel_style(
+    style: Style,
+    side: Side,
+    background: BackgroundColor,
+    use_background: bool,
+) -> Style {
+    if use_background {
+        // Use subtle gray background colors instead of red/green
+        // This works well in side-by-side view where position indicates add/remove
+        // Much less visually aggressive while preserving syntax highlighting
+        if background.is_dark() {
+            // Use bright_black (gray) for dark terminals
+            style.on_bright_black()
+        } else {
+            // Use black (appears as dark gray) for light terminals
+            style.on_black()
         }
     } else {
-        match side {
-            Side::Left => style.red(),
-            Side::Right => style.green(),
+        // Use foreground colors (original behavior)
+        if background.is_dark() {
+            match side {
+                Side::Left => style.bright_red(),
+                Side::Right => style.bright_green(),
+            }
+        } else {
+            match side {
+                Side::Left => style.red(),
+                Side::Right => style.green(),
+            }
         }
     }
 }
@@ -370,6 +389,7 @@ pub(crate) fn color_positions(
     side: Side,
     background: BackgroundColor,
     syntax_highlight: bool,
+    background_diff_colors: bool,
     file_format: &FileFormat,
     mps: &[MatchedPos],
 ) -> Vec<(SingleLineSpan, Style)> {
@@ -407,8 +427,41 @@ pub(crate) fn color_positions(
                 }
             }
             MatchKind::Novel { highlight, .. } => {
-                style = novel_style(style, side, background);
+                // Apply syntax highlighting foreground colors when using background diff colors
+                if background_diff_colors && syntax_highlight {
+                    if let TokenKind::Atom(atom_kind) = highlight {
+                        match atom_kind {
+                            AtomKind::String(StringKind::StringLiteral) => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::String(StringKind::Text) => {}
+                            AtomKind::Comment => {
+                                style = style.italic();
+                                style = if background.is_dark() {
+                                    style.bright_blue()
+                                } else {
+                                    style.blue()
+                                };
+                            }
+                            AtomKind::Keyword | AtomKind::Type => {
+                                style = style.bold();
+                            }
+                            AtomKind::TreeSitterError => style = style.purple(),
+                            AtomKind::Normal => {}
+                        }
+                    }
+                }
+
+                // Apply diff colors (foreground or background based on flag)
+                style = novel_style(style, side, background, background_diff_colors);
+
+                // Apply bold/italic for specific tokens (if not already applied above)
                 if syntax_highlight
+                    && !background_diff_colors
                     && matches!(
                         highlight,
                         TokenKind::Delimiter
@@ -418,12 +471,41 @@ pub(crate) fn color_positions(
                 {
                     style = style.bold();
                 }
-                if matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+                if !background_diff_colors && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
                     style = style.italic();
                 }
             }
             MatchKind::NovelWord { highlight } => {
-                style = novel_style(style, side, background).bold();
+                // Apply syntax highlighting foreground colors when using background diff colors
+                if background_diff_colors && syntax_highlight {
+                    if let TokenKind::Atom(atom_kind) = highlight {
+                        match atom_kind {
+                            AtomKind::String(StringKind::StringLiteral) => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::String(StringKind::Text) => {}
+                            AtomKind::Comment => {
+                                style = style.italic();
+                                style = if background.is_dark() {
+                                    style.bright_blue()
+                                } else {
+                                    style.blue()
+                                };
+                            }
+                            AtomKind::Keyword | AtomKind::Type => {
+                                style = style.bold();
+                            }
+                            AtomKind::TreeSitterError => style = style.purple(),
+                            AtomKind::Normal => {}
+                        }
+                    }
+                }
+
+                style = novel_style(style, side, background, background_diff_colors).bold();
 
                 // Underline novel words inside comments in code, but
                 // don't apply it to every single line in plaintext.
@@ -431,13 +513,43 @@ pub(crate) fn color_positions(
                     style = style.underline();
                 }
 
-                if syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+                if !background_diff_colors && syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
                     style = style.italic();
                 }
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
-                style = novel_style(style, side, background);
-                if syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+                // Apply syntax highlighting foreground colors when using background diff colors
+                if background_diff_colors && syntax_highlight {
+                    if let TokenKind::Atom(atom_kind) = highlight {
+                        match atom_kind {
+                            AtomKind::String(StringKind::StringLiteral) => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::String(StringKind::Text) => {}
+                            AtomKind::Comment => {
+                                style = style.italic();
+                                style = if background.is_dark() {
+                                    style.bright_blue()
+                                } else {
+                                    style.blue()
+                                };
+                            }
+                            AtomKind::Keyword | AtomKind::Type => {
+                                style = style.bold();
+                            }
+                            AtomKind::TreeSitterError => style = style.purple(),
+                            AtomKind::Normal => {}
+                        }
+                    }
+                }
+
+                style = novel_style(style, side, background, background_diff_colors);
+
+                if !background_diff_colors && syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
                     style = style.italic();
                 }
             }
@@ -452,11 +564,19 @@ pub(crate) fn apply_colors(
     s: &str,
     side: Side,
     syntax_highlight: bool,
+    background_diff_colors: bool,
     file_format: &FileFormat,
     background: BackgroundColor,
     mps: &[MatchedPos],
 ) -> Vec<String> {
-    let styles = color_positions(side, background, syntax_highlight, file_format, mps);
+    let styles = color_positions(
+        side,
+        background,
+        syntax_highlight,
+        background_diff_colors,
+        file_format,
+        mps,
+    );
     let lines = split_on_newlines(s).collect::<Vec<_>>();
     style_lines(&lines, &styles)
 }
@@ -528,7 +648,8 @@ pub(crate) fn apply_line_number_color(
             // For changed lines, show the line number as red/green
             // and bold. This works well for syntactic diffs, where
             // most content is not bold.
-            style = novel_style(style, side, display_options.background_color).bold();
+            // Note: Line numbers always use foreground colors, not background colors
+            style = novel_style(style, side, display_options.background_color, false).bold();
         } else {
             // For unchanged lines, dim the line numbers so it's
             // clearly separate from the content.
