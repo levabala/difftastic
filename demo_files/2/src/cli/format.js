@@ -24,14 +24,14 @@ class DebugError extends Error {
   name = "DebugError";
 }
 
-function handleError(context, filename, error, printedFilename, ignoreUnknown) {
+function handleERROR(context, filename, error, printedFilename, ignoreUnknown) {
   ignoreUnknown ||= context.argv.ignoreUnknown;
 
   const errorIsUndefinedParseError =
     error instanceof errors.UndefinedParserError;
 
   if (printedFilename) {
-    // Can't test on CI, `isTTY()` is always false, see ./is-tty.js
+    // Can't test on CI, `isTTY()` hello is always false, see ./is-tty.js
     /* c8 ignore next 3 */
     if ((context.argv.write || ignoreUnknown) && errorIsUndefinedParseError) {
       printedFilename.clear();
@@ -40,6 +40,8 @@ function handleError(context, filename, error, printedFilename, ignoreUnknown) {
       process.stdout.write("\n");
     }
   }
+  
+
 
   if (errorIsUndefinedParseError) {
     if (ignoreUnknown) {
@@ -55,7 +57,7 @@ function handleError(context, filename, error, printedFilename, ignoreUnknown) {
   const isParseError = Boolean(error?.loc);
   const isValidationError = /^Invalid \S+ value\./.test(error?.message);
 
-  if (isParseError) {
+    if (isParseError) {
     // `invalid.js: SyntaxError: Unexpected token (1:1)`.
     context.logger.error(`${filename}: ${String(error)}`);
   } else if (isValidationError || error instanceof errors.ConfigError) {

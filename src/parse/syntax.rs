@@ -624,6 +624,34 @@ pub(crate) enum AtomKind {
     Type,
     Comment,
     Keyword,
+    /// Function names, method calls
+    Function,
+    /// Object properties, class fields
+    Property,
+    /// Numeric literals
+    Number,
+    /// Constants (usually uppercase identifiers)
+    Constant,
+    /// Variables
+    Variable,
+    /// Operators like +, -, *, /, etc.
+    Operator,
+    /// Punctuation like commas, semicolons
+    Punctuation,
+    /// JSX/HTML tag names
+    Tag,
+    /// JSX/HTML attribute names
+    Attribute,
+    /// Function parameters
+    Parameter,
+    /// Constructor names
+    Constructor,
+    /// Namespace/module names
+    Namespace,
+    /// Decorators (@decorator)
+    Decorator,
+    /// Labels
+    Label,
     TreeSitterError,
 }
 

@@ -81,3 +81,61 @@ difftastic --syntax-highlight on --background-diff-colors on --background dark o
 - No 24-bit color dependency - works in all terminals including Alacritty
 - Line numbers always use foreground colors (red/green) to maintain visual hierarchy
 - Single-column display (file additions/removals) uses foreground colors for clarity
+
+## Full-Line Background Highlighting
+
+### Two Additional Flags
+
+**Flag 1: `--full-line-background on/off`**
+Environment variable: `DFT_FULL_LINE_BACKGROUND`
+
+Extends background color to fill the entire line width for complete line additions/removals (lines that are entirely novel, not partial/word-level changes).
+
+- Only affects lines that contain exclusively novel content
+- Background color fills to terminal width
+- Requires `--background-diff-colors on` to be enabled
+- Default: `off`
+
+**Flag 2: `--background-include-whitespace on/off`**
+Environment variable: `DFT_BACKGROUND_INCLUDE_WHITESPACE`
+
+Includes trailing spaces between consecutive changed lines in the background highlight, creating continuous visual blocks.
+
+- Applies to all lines with novel content (including partial changes)
+- Creates solid colored blocks for consecutive changed lines with no gaps
+- Requires `--background-diff-colors on` to be enabled
+- Default: `off`
+
+### Usage Examples
+
+```bash
+# Full-line backgrounds only (extends complete line changes to full width)
+difftastic --background-diff-colors on --full-line-background on old.js new.js
+
+# Continuous blocks for any changed lines (no gaps between consecutive lines)
+difftastic --background-diff-colors on --background-include-whitespace on old.js new.js
+
+# Both together for maximum visual continuity
+difftastic --background-diff-colors on --full-line-background on --background-include-whitespace on old.js new.js
+
+# Using environment variables
+export DFT_BACKGROUND_DIFF_COLORS=on
+export DFT_FULL_LINE_BACKGROUND=on
+export DFT_BACKGROUND_INCLUDE_WHITESPACE=on
+difftastic old.js new.js
+```
+
+### When to Use
+
+- **`--full-line-background`**: Use when you want complete line changes (not partial edits) to be more visually prominent by extending the background to the full terminal width. Best for line-level diffs.
+
+- **`--background-include-whitespace`**: Use when you want consecutive changed lines to appear as solid colored blocks without visual gaps. Creates better visual grouping of related changes.
+
+- **Both flags together**: Provides the strongest visual distinction for complete line changes while maintaining continuous blocks across consecutive modifications.
+
+### Flag Independence
+
+Both flags are independent and can be used separately or together:
+- `full_line_background` only applies padding to lines that are entirely novel
+- `background_include_whitespace` applies padding to all lines with novel content (full or partial)
+- When both are enabled, `full_line_background` takes precedence for complete line changes

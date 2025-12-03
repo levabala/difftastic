@@ -1232,10 +1232,24 @@ fn tree_highlights(
     src: &str,
     config: &TreeSitterConfig,
 ) -> HighlightedNodeIds {
-    let mut keyword_ish_capture_ids: Vec<u32> = vec![];
+    let mut keyword_capture_ids: Vec<u32> = vec![];
     let mut string_capture_ids = vec![];
     let mut type_capture_ids = vec![];
     let mut comment_capture_ids = vec![];
+    let mut function_capture_ids = vec![];
+    let mut property_capture_ids = vec![];
+    let mut number_capture_ids = vec![];
+    let mut constant_capture_ids = vec![];
+    let mut variable_capture_ids = vec![];
+    let mut operator_capture_ids = vec![];
+    let mut punctuation_capture_ids = vec![];
+    let mut tag_capture_ids = vec![];
+    let mut attribute_capture_ids = vec![];
+    let mut parameter_capture_ids = vec![];
+    let mut constructor_capture_ids = vec![];
+    let mut namespace_capture_ids = vec![];
+    let mut decorator_capture_ids = vec![];
+    let mut label_capture_ids = vec![];
 
     // Query names are often written with namespacing, so
     // highlights.scm might contain @constant or the more specific
@@ -1246,46 +1260,131 @@ fn tree_highlights(
     let cn = config.highlight_query.capture_names();
     for (idx, name) in cn.iter().enumerate() {
         let name = *name;
-        if name == "type"
+        let idx_u32 = idx as u32;
+
+        // Functions and methods
+        if name == "function"
+            || name.starts_with("function.")
+            || name == "method"
+            || name.starts_with("method.")
+            || name == "function.call"
+            || name == "function.method"
+        {
+            function_capture_ids.push(idx_u32);
+        }
+        // Properties and fields
+        else if name == "property"
+            || name.starts_with("property.")
+            || name == "field"
+            || name.starts_with("field.")
+        {
+            property_capture_ids.push(idx_u32);
+        }
+        // Numbers
+        else if name == "number"
+            || name.starts_with("number.")
+            || name == "float"
+        {
+            number_capture_ids.push(idx_u32);
+        }
+        // Constants
+        else if name == "constant"
+            || name.starts_with("constant.")
+            || name == "boolean"
+        {
+            constant_capture_ids.push(idx_u32);
+        }
+        // Variables
+        else if name == "variable"
+            || name.starts_with("variable.")
+        {
+            variable_capture_ids.push(idx_u32);
+        }
+        // Operators
+        else if name == "operator"
+            || name.starts_with("operator.")
+        {
+            operator_capture_ids.push(idx_u32);
+        }
+        // Punctuation
+        else if name == "punctuation"
+            || name.starts_with("punctuation.")
+        {
+            punctuation_capture_ids.push(idx_u32);
+        }
+        // JSX/HTML tags
+        else if name == "tag"
+            || name.starts_with("tag.")
+        {
+            tag_capture_ids.push(idx_u32);
+        }
+        // JSX/HTML attributes
+        else if name == "attribute"
+            || name.starts_with("attribute.")
+        {
+            attribute_capture_ids.push(idx_u32);
+        }
+        // Parameters
+        else if name == "parameter"
+            || name.starts_with("parameter.")
+        {
+            parameter_capture_ids.push(idx_u32);
+        }
+        // Constructors
+        else if name == "constructor"
+            || name.starts_with("constructor.")
+        {
+            constructor_capture_ids.push(idx_u32);
+        }
+        // Namespaces/modules
+        else if name == "namespace"
+            || name.starts_with("namespace.")
+            || name == "module"
+            || name.starts_with("module.")
+        {
+            namespace_capture_ids.push(idx_u32);
+        }
+        // Decorators
+        else if name == "decorator"
+            || name.starts_with("decorator.")
+        {
+            decorator_capture_ids.push(idx_u32);
+        }
+        // Labels (including Rust lifetimes)
+        else if name == "label"
+            || name.starts_with("label.")
+        {
+            label_capture_ids.push(idx_u32);
+        }
+        // Types
+        else if name == "type"
             || name.starts_with("type.")
             || name.starts_with("storage.type.")
             || name.starts_with("keyword.type.")
-            || name == "tag"
-            || name == "constructor"
         {
-            // TODO: this doesn't capture (type_ref) in Elm as that
-            // applies to the parent node.
-            type_capture_ids.push(idx as u32);
-        } else if name == "keyword"
+            type_capture_ids.push(idx_u32);
+        }
+        // Keywords (fallback for general keyword-like things)
+        else if name == "keyword"
             || name.starts_with("keyword.")
-            || name == "constant"
-            || name.starts_with("constant.")
-            || name == "operator"
             || name == "repeat"
             || name == "conditional"
-            || name == "boolean"
             || name == "exception"
             || name == "include"
         {
-            keyword_ish_capture_ids.push(idx as u32);
+            keyword_capture_ids.push(idx_u32);
         }
-
-        if name == "string"
+        // Strings
+        else if name == "string"
             || name.starts_with("string.")
             || name == "character"
             || name.starts_with("character.")
         {
-            string_capture_ids.push(idx as u32);
+            string_capture_ids.push(idx_u32);
         }
-
-        // Rust uses 'label' for lifetimes, and highglighting
-        // lifetimes consistently with types seems reasonable.
-        if name == "label" {
-            type_capture_ids.push(idx as u32);
-        }
-
-        if name == "comment" || name.starts_with("comment.") {
-            comment_capture_ids.push(idx as u32);
+        // Comments
+        else if name == "comment" || name.starts_with("comment.") {
+            comment_capture_ids.push(idx_u32);
         }
     }
 
@@ -1296,12 +1395,54 @@ fn tree_highlights(
     let mut keyword_ids = DftHashSet::default();
     let mut string_ids = DftHashSet::default();
     let mut type_ids = DftHashSet::default();
+    let mut function_ids = DftHashSet::default();
+    let mut property_ids = DftHashSet::default();
+    let mut number_ids = DftHashSet::default();
+    let mut constant_ids = DftHashSet::default();
+    let mut variable_ids = DftHashSet::default();
+    let mut operator_ids = DftHashSet::default();
+    let mut punctuation_ids = DftHashSet::default();
+    let mut tag_ids = DftHashSet::default();
+    let mut attribute_ids = DftHashSet::default();
+    let mut parameter_ids = DftHashSet::default();
+    let mut constructor_ids = DftHashSet::default();
+    let mut namespace_ids = DftHashSet::default();
+    let mut decorator_ids = DftHashSet::default();
+    let mut label_ids = DftHashSet::default();
 
     while let Some(m) = q_matches.next() {
         for c in m.captures {
             if comment_capture_ids.contains(&c.index) {
                 comment_ids.insert(c.node.id());
-            } else if keyword_ish_capture_ids.contains(&c.index) {
+            } else if function_capture_ids.contains(&c.index) {
+                function_ids.insert(c.node.id());
+            } else if property_capture_ids.contains(&c.index) {
+                property_ids.insert(c.node.id());
+            } else if number_capture_ids.contains(&c.index) {
+                number_ids.insert(c.node.id());
+            } else if constant_capture_ids.contains(&c.index) {
+                constant_ids.insert(c.node.id());
+            } else if variable_capture_ids.contains(&c.index) {
+                variable_ids.insert(c.node.id());
+            } else if operator_capture_ids.contains(&c.index) {
+                operator_ids.insert(c.node.id());
+            } else if punctuation_capture_ids.contains(&c.index) {
+                punctuation_ids.insert(c.node.id());
+            } else if tag_capture_ids.contains(&c.index) {
+                tag_ids.insert(c.node.id());
+            } else if attribute_capture_ids.contains(&c.index) {
+                attribute_ids.insert(c.node.id());
+            } else if parameter_capture_ids.contains(&c.index) {
+                parameter_ids.insert(c.node.id());
+            } else if constructor_capture_ids.contains(&c.index) {
+                constructor_ids.insert(c.node.id());
+            } else if namespace_capture_ids.contains(&c.index) {
+                namespace_ids.insert(c.node.id());
+            } else if decorator_capture_ids.contains(&c.index) {
+                decorator_ids.insert(c.node.id());
+            } else if label_capture_ids.contains(&c.index) {
+                label_ids.insert(c.node.id());
+            } else if keyword_capture_ids.contains(&c.index) {
                 keyword_ids.insert(c.node.id());
             } else if string_capture_ids.contains(&c.index) {
                 string_ids.insert(c.node.id());
@@ -1316,6 +1457,20 @@ fn tree_highlights(
         keyword_ids,
         string_ids,
         type_ids,
+        function_ids,
+        property_ids,
+        number_ids,
+        constant_ids,
+        variable_ids,
+        operator_ids,
+        punctuation_ids,
+        tag_ids,
+        attribute_ids,
+        parameter_ids,
+        constructor_ids,
+        namespace_ids,
+        decorator_ids,
+        label_ids,
     }
 }
 
@@ -1523,6 +1678,20 @@ pub(crate) struct HighlightedNodeIds {
     comment_ids: DftHashSet<usize>,
     string_ids: DftHashSet<usize>,
     type_ids: DftHashSet<usize>,
+    function_ids: DftHashSet<usize>,
+    property_ids: DftHashSet<usize>,
+    number_ids: DftHashSet<usize>,
+    constant_ids: DftHashSet<usize>,
+    variable_ids: DftHashSet<usize>,
+    operator_ids: DftHashSet<usize>,
+    punctuation_ids: DftHashSet<usize>,
+    tag_ids: DftHashSet<usize>,
+    attribute_ids: DftHashSet<usize>,
+    parameter_ids: DftHashSet<usize>,
+    constructor_ids: DftHashSet<usize>,
+    namespace_ids: DftHashSet<usize>,
+    decorator_ids: DftHashSet<usize>,
+    label_ids: DftHashSet<usize>,
 }
 
 /// Convert all the tree-sitter nodes at this level to difftastic
@@ -1819,6 +1988,34 @@ fn atom_from_cursor<'a>(
         AtomKind::String(StringKind::StringLiteral)
     } else if highlights.type_ids.contains(&node.id()) {
         AtomKind::Type
+    } else if highlights.function_ids.contains(&node.id()) {
+        AtomKind::Function
+    } else if highlights.property_ids.contains(&node.id()) {
+        AtomKind::Property
+    } else if highlights.number_ids.contains(&node.id()) {
+        AtomKind::Number
+    } else if highlights.constant_ids.contains(&node.id()) {
+        AtomKind::Constant
+    } else if highlights.variable_ids.contains(&node.id()) {
+        AtomKind::Variable
+    } else if highlights.operator_ids.contains(&node.id()) {
+        AtomKind::Operator
+    } else if highlights.punctuation_ids.contains(&node.id()) {
+        AtomKind::Punctuation
+    } else if highlights.tag_ids.contains(&node.id()) {
+        AtomKind::Tag
+    } else if highlights.attribute_ids.contains(&node.id()) {
+        AtomKind::Attribute
+    } else if highlights.parameter_ids.contains(&node.id()) {
+        AtomKind::Parameter
+    } else if highlights.constructor_ids.contains(&node.id()) {
+        AtomKind::Constructor
+    } else if highlights.namespace_ids.contains(&node.id()) {
+        AtomKind::Namespace
+    } else if highlights.decorator_ids.contains(&node.id()) {
+        AtomKind::Decorator
+    } else if highlights.label_ids.contains(&node.id()) {
+        AtomKind::Label
     } else if node.kind() == "CharData" || node.kind() == "text" {
         AtomKind::String(StringKind::Text)
     } else {

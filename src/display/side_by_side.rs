@@ -353,6 +353,76 @@ fn highlight_as_novel(
     false
 }
 
+/// Check if a line contains only novel content (no unchanged tokens).
+/// This is used to determine if we should extend background highlighting to the full line width.
+fn is_full_line_novel(
+    line_num: Option<LineNumber>,
+    _highlights: &DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>>,
+    mps: &[MatchedPos],
+) -> bool {
+    let Some(line_num) = line_num else {
+        return false;
+    };
+
+    // Check if there are any matched positions on this line
+    let line_mps: Vec<_> = mps.iter().filter(|mp| mp.pos.line == line_num).collect();
+
+    if line_mps.is_empty() {
+        return false;
+    }
+
+    // Check if ALL matched positions on this line are novel
+    line_mps.iter().all(|mp| mp.kind.is_novel())
+}
+
+/// Pad a line with background-styled spaces to fill the full width.
+/// Used when full_line_background is enabled for complete line additions/removals.
+fn pad_line_with_background(
+    mut line: String,
+    target_width: usize,
+    side: Side,
+    background: BackgroundColor,
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
+) -> String {
+    // Strip trailing newline if present
+    let has_newline = line.ends_with('\n');
+    if has_newline {
+        line.pop();
+    }
+
+    // Calculate current display width (accounting for ANSI codes)
+    // This is a simple approximation - count non-ANSI characters
+    let display_width = line
+        .chars()
+        .filter(|c| !c.is_ascii_control() && *c != '\x1b')
+        .count();
+
+    if display_width < target_width {
+        let padding_needed = target_width - display_width;
+        let padding = " ".repeat(padding_needed);
+
+        // Apply background styling to padding
+        let styled_padding = novel_style(
+            Style::new(),
+            side,
+            background,
+            true, // use_background
+            rgb_added,
+            rgb_removed,
+        ).style(padding).to_string();
+
+        line.push_str(&styled_padding);
+    }
+
+    // Restore newline
+    if has_newline {
+        line.push('\n');
+    }
+
+    line
+}
+
 /// Find the longest line in `lhs_src` and `rhs_src` that will be
 /// displayed.
 fn displayed_content_max_len_in_bytes(
@@ -737,13 +807,73 @@ pub(crate) fn print(
                     None => vec!["".into()],
                 };
 
+                // Check if lines are full-line novel for background padding
+                let lhs_is_full_novel = display_options.background_diff_colors
+                    && display_options.full_line_background
+                    && is_full_line_novel(*lhs_line_num, &lhs_highlights, lhs_mps);
+                let rhs_is_full_novel = display_options.background_diff_colors
+                    && display_options.full_line_background
+                    && is_full_line_novel(*rhs_line_num, &rhs_highlights, rhs_mps);
+
+                // Check if lines have any novel content for whitespace inclusion
+                let lhs_has_novel = display_options.background_diff_colors
+                    && display_options.background_include_whitespace
+                    && lhs_line_novel;
+                let rhs_has_novel = display_options.background_diff_colors
+                    && display_options.background_include_whitespace
+                    && rhs_line_novel;
+
                 for (i, (lhs_line, rhs_line)) in zip_pad_shorter(&lhs_line, &rhs_line)
                     .into_iter()
                     .enumerate()
                 {
-                    let lhs_line =
+                    let mut lhs_line =
                         lhs_line.unwrap_or_else(|| " ".repeat(source_dims.content_display_width));
-                    let rhs_line = rhs_line.unwrap_or_else(|| "".into());
+                    let mut rhs_line = rhs_line.unwrap_or_else(|| "".into());
+
+                    // Apply full-line background padding if enabled (takes priority)
+                    if lhs_is_full_novel {
+                        lhs_line = pad_line_with_background(
+                            lhs_line,
+                            source_dims.content_display_width,
+                            Side::Left,
+                            display_options.background_color,
+                            display_options.diff_color_added_bg,
+                            display_options.diff_color_removed_bg,
+                        );
+                    } else if lhs_has_novel {
+                        // Apply whitespace inclusion for partial changes
+                        lhs_line = pad_line_with_background(
+                            lhs_line,
+                            source_dims.content_display_width,
+                            Side::Left,
+                            display_options.background_color,
+                            display_options.diff_color_added_bg,
+                            display_options.diff_color_removed_bg,
+                        );
+                    }
+
+                    if rhs_is_full_novel {
+                        rhs_line = pad_line_with_background(
+                            rhs_line,
+                            source_dims.content_display_width,
+                            Side::Right,
+                            display_options.background_color,
+                            display_options.diff_color_added_bg,
+                            display_options.diff_color_removed_bg,
+                        );
+                    } else if rhs_has_novel {
+                        // Apply whitespace inclusion for partial changes
+                        rhs_line = pad_line_with_background(
+                            rhs_line,
+                            source_dims.content_display_width,
+                            Side::Right,
+                            display_options.background_color,
+                            display_options.diff_color_added_bg,
+                            display_options.diff_color_removed_bg,
+                        );
+                    }
+
                     let lhs_num: String = if i == 0 {
                         display_lhs_line_num.clone()
                     } else {

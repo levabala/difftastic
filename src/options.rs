@@ -47,6 +47,8 @@ pub(crate) struct DisplayOptions {
     pub(crate) num_context_lines: u32,
     pub(crate) syntax_highlight: bool,
     pub(crate) background_diff_colors: bool,
+    pub(crate) full_line_background: bool,
+    pub(crate) background_include_whitespace: bool,
     pub(crate) sort_paths: bool,
     /// Optional 24-bit RGB color for added content background (when background_diff_colors is on)
     pub(crate) diff_color_added_bg: Option<RgbColor>,
@@ -68,6 +70,8 @@ impl Default for DisplayOptions {
             num_context_lines: 3,
             syntax_highlight: true,
             background_diff_colors: false,
+            full_line_background: false,
+            background_include_whitespace: false,
             sort_paths: false,
             diff_color_added_bg: None,
             diff_color_removed_bg: None,
@@ -268,6 +272,24 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .default_value("off")
                 .action(ArgAction::Set)
                 .help("Use background colors (red/green) for diff highlighting while preserving syntax highlighting foreground colors. When enabled, added/removed code will have colored backgrounds instead of colored text.")
+        )
+        .arg(
+            Arg::new("full-line-background").long("full-line-background")
+                .value_name("on/off")
+                .env("DFT_FULL_LINE_BACKGROUND")
+                .value_parser(["on", "off"])
+                .default_value("off")
+                .action(ArgAction::Set)
+                .help("When using background diff colors, extend the background highlight to fill the entire line width for complete line additions/removals. Only works when --background-diff-colors is on.")
+        )
+        .arg(
+            Arg::new("background-include-whitespace").long("background-include-whitespace")
+                .value_name("on/off")
+                .env("DFT_BACKGROUND_INCLUDE_WHITESPACE")
+                .value_parser(["on", "off"])
+                .default_value("off")
+                .action(ArgAction::Set)
+                .help("When using background diff colors, include trailing spaces between consecutive changed lines in the background highlight to create continuous visual blocks. Only works when --background-diff-colors is on.")
         )
         .arg(
             Arg::new("diff-color-added-bg").long("diff-color-added-bg")
@@ -863,6 +885,16 @@ pub(crate) fn parse_args() -> Mode {
         .map(|s| s.as_str())
         == Some("on");
 
+    let full_line_background = matches
+        .get_one::<String>("full-line-background")
+        .map(|s| s.as_str())
+        == Some("on");
+
+    let background_include_whitespace = matches
+        .get_one::<String>("background-include-whitespace")
+        .map(|s| s.as_str())
+        == Some("on");
+
     let diff_color_added_bg = matches
         .get_one::<String>("diff-color-added-bg")
         .and_then(|hex| match RgbColor::from_hex(hex) {
@@ -997,6 +1029,8 @@ pub(crate) fn parse_args() -> Mode {
                 num_context_lines,
                 syntax_highlight,
                 background_diff_colors,
+                full_line_background,
+                background_include_whitespace,
                 sort_paths,
                 diff_color_added_bg,
                 diff_color_removed_bg,
@@ -1041,6 +1075,8 @@ pub(crate) fn parse_args() -> Mode {
         num_context_lines,
         syntax_highlight,
         background_diff_colors,
+        full_line_background,
+        background_include_whitespace,
         sort_paths,
         diff_color_added_bg,
         diff_color_removed_bg,

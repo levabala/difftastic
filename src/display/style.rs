@@ -467,6 +467,86 @@ pub(crate) fn color_positions(
                             AtomKind::Keyword | AtomKind::Type => {
                                 style = style.bold();
                             }
+                            AtomKind::Function => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Property => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Number => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Constant => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::Variable => {}
+                            AtomKind::Operator => {}
+                            AtomKind::Punctuation => {}
+                            AtomKind::Tag => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Attribute => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Parameter => {
+                                style = if background.is_dark() {
+                                    style.cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Constructor => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Namespace => {
+                                style = if background.is_dark() {
+                                    style.bright_green()
+                                } else {
+                                    style.green()
+                                };
+                            }
+                            AtomKind::Decorator => {
+                                style = if background.is_dark() {
+                                    style.yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Label => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
                             AtomKind::TreeSitterError => style = style.purple(),
                             AtomKind::Normal => {}
                         }
@@ -496,6 +576,86 @@ pub(crate) fn color_positions(
                             }
                             AtomKind::Keyword | AtomKind::Type => {
                                 style = style.bold();
+                            }
+                            AtomKind::Function => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Property => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Number => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Constant => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::Variable => {}
+                            AtomKind::Operator => {}
+                            AtomKind::Punctuation => {}
+                            AtomKind::Tag => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Attribute => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Parameter => {
+                                style = if background.is_dark() {
+                                    style.cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Constructor => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Namespace => {
+                                style = if background.is_dark() {
+                                    style.bright_green()
+                                } else {
+                                    style.green()
+                                };
+                            }
+                            AtomKind::Decorator => {
+                                style = if background.is_dark() {
+                                    style.yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Label => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
                             }
                             AtomKind::TreeSitterError => style = style.purple(),
                             AtomKind::Normal => {}
@@ -546,6 +706,86 @@ pub(crate) fn color_positions(
                             AtomKind::Keyword | AtomKind::Type => {
                                 style = style.bold();
                             }
+                            AtomKind::Function => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Property => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Number => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Constant => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::Variable => {}
+                            AtomKind::Operator => {}
+                            AtomKind::Punctuation => {}
+                            AtomKind::Tag => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Attribute => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Parameter => {
+                                style = if background.is_dark() {
+                                    style.cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Constructor => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Namespace => {
+                                style = if background.is_dark() {
+                                    style.bright_green()
+                                } else {
+                                    style.green()
+                                };
+                            }
+                            AtomKind::Decorator => {
+                                style = if background.is_dark() {
+                                    style.yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Label => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
                             AtomKind::TreeSitterError => style = style.purple(),
                             AtomKind::Normal => {}
                         }
@@ -587,6 +827,86 @@ pub(crate) fn color_positions(
                             }
                             AtomKind::Keyword | AtomKind::Type => {
                                 style = style.bold();
+                            }
+                            AtomKind::Function => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Property => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Number => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Constant => {
+                                style = if background.is_dark() {
+                                    style.bright_magenta()
+                                } else {
+                                    style.magenta()
+                                };
+                            }
+                            AtomKind::Variable => {}
+                            AtomKind::Operator => {}
+                            AtomKind::Punctuation => {}
+                            AtomKind::Tag => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Attribute => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Parameter => {
+                                style = if background.is_dark() {
+                                    style.cyan()
+                                } else {
+                                    style.cyan()
+                                };
+                            }
+                            AtomKind::Constructor => {
+                                style = if background.is_dark() {
+                                    style.bright_yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Namespace => {
+                                style = if background.is_dark() {
+                                    style.bright_green()
+                                } else {
+                                    style.green()
+                                };
+                            }
+                            AtomKind::Decorator => {
+                                style = if background.is_dark() {
+                                    style.yellow()
+                                } else {
+                                    style.yellow()
+                                };
+                            }
+                            AtomKind::Label => {
+                                style = if background.is_dark() {
+                                    style.bright_cyan()
+                                } else {
+                                    style.cyan()
+                                };
                             }
                             AtomKind::TreeSitterError => style = style.purple(),
                             AtomKind::Normal => {}
