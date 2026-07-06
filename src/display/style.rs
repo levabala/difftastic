@@ -474,13 +474,33 @@ fn whitespace_spans_between_novel_spans(
             }
 
             let gap = substring_by_byte(line, gap_start, gap_end);
+            let mut whitespace_start = None;
 
-            if gap.chars().all(char::is_whitespace) {
+            for (offset, ch) in gap.char_indices() {
+                if ch.is_whitespace() {
+                    whitespace_start.get_or_insert(offset);
+
+                    continue;
+                }
+
+                if let Some(start) = whitespace_start.take() {
+                    whitespace_spans.push((
+                        SingleLineSpan {
+                            line: *line_num,
+                            start_col: (gap_start + start) as u32,
+                            end_col: (gap_start + offset) as u32,
+                        },
+                        novel_style(Style::new(), side, background, true, rgb_added, rgb_removed),
+                    ));
+                }
+            }
+
+            if let Some(start) = whitespace_start {
                 whitespace_spans.push((
                     SingleLineSpan {
                         line: *line_num,
-                        start_col: prev_span.end_col,
-                        end_col: next_span.start_col,
+                        start_col: (gap_start + start) as u32,
+                        end_col: gap_end as u32,
                     },
                     novel_style(Style::new(), side, background, true, rgb_added, rgb_removed),
                 ));
@@ -1334,6 +1354,33 @@ mod tests {
         assert!(
             rendered[0].contains("\x1b[48;2;1;2;3m \x1b"),
             "expected the space between changed spans to have a background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
+    fn background_include_whitespace_styles_space_inside_punctuation_gap() {
+        let positions = color_positions(
+            "0, 0, 0",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[
+                novel_pos(0, 0, 1),
+                novel_pos(0, 3, 4),
+                novel_pos(0, 6, 7),
+            ],
+            Some(RgbColor::new(1, 2, 3)),
+            None,
+        );
+        let rendered = split_and_apply("0, 0, 0", 80, TAB_WIDTH, &positions, Side::Right);
+
+        assert!(
+            rendered[0].contains(",\x1b[48;2;1;2;3m \x1b"),
+            "expected spaces after punctuation between changed spans to have a background: {:?}",
             rendered[0]
         );
     }
