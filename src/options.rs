@@ -71,7 +71,7 @@ impl Default for DisplayOptions {
             syntax_highlight: true,
             background_diff_colors: false,
             full_line_background: false,
-            background_include_whitespace: false,
+            background_include_whitespace: true,
             sort_paths: false,
             diff_color_added_bg: None,
             diff_color_removed_bg: None,
@@ -287,9 +287,9 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .value_name("on/off")
                 .env("DFT_BACKGROUND_INCLUDE_WHITESPACE")
                 .value_parser(["on", "off"])
-                .default_value("off")
+                .default_value("on")
                 .action(ArgAction::Set)
-                .help("When using background diff colors, include whitespace gaps between changed tokens and trailing spaces between consecutive changed lines in the background highlight to create continuous visual blocks. Only works when --background-diff-colors is on.")
+                .help("When using background diff colors, include whitespace gaps between changed tokens in the background highlight. Only works when --background-diff-colors is on.")
         )
         .arg(
             Arg::new("diff-color-added-bg").long("diff-color-added-bg")
