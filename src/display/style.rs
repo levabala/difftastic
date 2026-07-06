@@ -430,11 +430,74 @@ fn merge_adjacent(items: &[(SingleLineSpan, Style)]) -> Vec<(SingleLineSpan, Sty
     merged
 }
 
+fn whitespace_spans_between_novel_spans(
+    src: &str,
+    side: Side,
+    background: BackgroundColor,
+    mps: &[MatchedPos],
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
+) -> Vec<(SingleLineSpan, Style)> {
+    let src_lines = split_on_newlines(src).collect::<Vec<_>>();
+    let mut novel_spans_by_line: DftHashMap<LineNumber, Vec<SingleLineSpan>> =
+        DftHashMap::default();
+
+    for mp in mps {
+        if mp.kind.is_novel() {
+            novel_spans_by_line
+                .entry(mp.pos.line)
+                .or_insert_with(Vec::new)
+                .push(mp.pos);
+        }
+    }
+
+    let mut whitespace_spans = vec![];
+    for (line_num, novel_spans) in novel_spans_by_line.iter_mut() {
+        novel_spans.sort_by_key(|span| span.start_col);
+
+        let Some(line) = src_lines.get(line_num.as_usize()) else {
+            continue;
+        };
+
+        for novel_span_pair in novel_spans.windows(2) {
+            let prev_span = novel_span_pair[0];
+            let next_span = novel_span_pair[1];
+
+            if prev_span.end_col >= next_span.start_col {
+                continue;
+            }
+
+            let gap_start = prev_span.end_col as usize;
+            let gap_end = next_span.start_col as usize;
+            if gap_end > byte_len(line) {
+                continue;
+            }
+
+            let gap = substring_by_byte(line, gap_start, gap_end);
+
+            if gap.chars().all(char::is_whitespace) {
+                whitespace_spans.push((
+                    SingleLineSpan {
+                        line: *line_num,
+                        start_col: prev_span.end_col,
+                        end_col: next_span.start_col,
+                    },
+                    novel_style(Style::new(), side, background, true, rgb_added, rgb_removed),
+                ));
+            }
+        }
+    }
+
+    whitespace_spans
+}
+
 pub(crate) fn color_positions(
+    src: &str,
     side: Side,
     background: BackgroundColor,
     syntax_highlight: bool,
     background_diff_colors: bool,
+    background_include_whitespace: bool,
     file_format: &FileFormat,
     mps: &[MatchedPos],
     rgb_added: Option<RgbColor>,
@@ -924,6 +987,18 @@ pub(crate) fn color_positions(
         styles.push((mp.pos, style));
     }
 
+    if background_diff_colors && background_include_whitespace {
+        styles.extend(whitespace_spans_between_novel_spans(
+            src,
+            side,
+            background,
+            mps,
+            rgb_added,
+            rgb_removed,
+        ));
+        styles.sort_by_key(|(span, _)| (span.line, span.start_col, span.end_col));
+    }
+
     merge_adjacent(&styles)
 }
 
@@ -932,6 +1007,7 @@ pub(crate) fn apply_colors(
     side: Side,
     syntax_highlight: bool,
     background_diff_colors: bool,
+    background_include_whitespace: bool,
     file_format: &FileFormat,
     background: BackgroundColor,
     mps: &[MatchedPos],
@@ -939,10 +1015,12 @@ pub(crate) fn apply_colors(
     rgb_removed: Option<RgbColor>,
 ) -> Vec<String> {
     let styles = color_positions(
+        s,
         side,
         background,
         syntax_highlight,
         background_diff_colors,
+        background_include_whitespace,
         file_format,
         mps,
         rgb_added,
@@ -1206,5 +1284,146 @@ mod tests {
             Side::Left,
         );
         assert_eq!(res, vec!["foobar", "      "])
+    }
+
+    #[test]
+    fn background_include_whitespace_adds_space_gap_between_novel_spans() {
+        let positions = color_positions(
+            "foo bar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            None,
+            None,
+        );
+        let spans = positions
+            .into_iter()
+            .map(|(span, _)| span)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            spans,
+            vec![
+                span(0, 0, 3),
+                span(0, 3, 4),
+                span(0, 4, 7),
+            ]
+        );
+    }
+
+    #[test]
+    fn background_include_whitespace_adds_tab_gap_between_novel_spans() {
+        let positions = color_positions(
+            "foo\tbar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            None,
+            None,
+        );
+        let spans = positions
+            .into_iter()
+            .map(|(span, _)| span)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            spans,
+            vec![
+                span(0, 0, 3),
+                span(0, 3, 4),
+                span(0, 4, 7),
+            ]
+        );
+    }
+
+    #[test]
+    fn background_include_whitespace_ignores_non_whitespace_gap_between_novel_spans() {
+        let positions = color_positions(
+            "foo-bar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            None,
+            None,
+        );
+        let spans = positions
+            .into_iter()
+            .map(|(span, _)| span)
+            .collect::<Vec<_>>();
+
+        assert_eq!(spans, vec![span(0, 0, 3), span(0, 4, 7)]);
+    }
+
+    #[test]
+    fn background_include_whitespace_does_not_apply_in_foreground_mode() {
+        let positions = color_positions(
+            "foo bar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            false,
+            true,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            None,
+            None,
+        );
+        let spans = positions
+            .into_iter()
+            .map(|(span, _)| span)
+            .collect::<Vec<_>>();
+
+        assert_eq!(spans, vec![span(0, 0, 3), span(0, 4, 7)]);
+    }
+
+    #[test]
+    fn background_include_whitespace_does_not_apply_when_disabled() {
+        let positions = color_positions(
+            "foo bar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            false,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            None,
+            None,
+        );
+        let spans = positions
+            .into_iter()
+            .map(|(span, _)| span)
+            .collect::<Vec<_>>();
+
+        assert_eq!(spans, vec![span(0, 0, 3), span(0, 4, 7)]);
+    }
+
+    fn novel_pos(line: u32, start_col: u32, end_col: u32) -> MatchedPos {
+        MatchedPos {
+            kind: MatchKind::Novel {
+                highlight: TokenKind::Atom(AtomKind::Keyword),
+            },
+            pos: span(line, start_col, end_col),
+        }
+    }
+
+    fn span(line: u32, start_col: u32, end_col: u32) -> SingleLineSpan {
+        SingleLineSpan {
+            line: line.into(),
+            start_col,
+            end_col,
+        }
     }
 }

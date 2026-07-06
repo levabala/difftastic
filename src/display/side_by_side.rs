@@ -279,9 +279,12 @@ pub(crate) fn lines_with_novel(
 /// Calculate positions of highlights on both sides. This includes
 /// both syntax highlighting and added/removed content highlighting.
 fn highlight_positions(
+    lhs_src: &str,
+    rhs_src: &str,
     background: BackgroundColor,
     syntax_highlight: bool,
     background_diff_colors: bool,
+    background_include_whitespace: bool,
     file_format: &FileFormat,
     lhs_mps: &[MatchedPos],
     rhs_mps: &[MatchedPos],
@@ -292,10 +295,12 @@ fn highlight_positions(
     DftHashMap<LineNumber, Vec<(SingleLineSpan, Style)>>,
 ) {
     let lhs_positions = color_positions(
+        lhs_src,
         Side::Left,
         background,
         syntax_highlight,
         background_diff_colors,
+        background_include_whitespace,
         file_format,
         lhs_mps,
         rgb_added,
@@ -310,10 +315,12 @@ fn highlight_positions(
     }
 
     let rhs_positions = color_positions(
+        rhs_src,
         Side::Right,
         background,
         syntax_highlight,
         background_diff_colors,
+        background_include_whitespace,
         file_format,
         rhs_mps,
         rgb_added,
@@ -530,6 +537,7 @@ pub(crate) fn print(
                 Side::Left,
                 display_options.syntax_highlight,
                 display_options.background_diff_colors,
+                display_options.background_include_whitespace,
                 file_format,
                 display_options.background_color,
                 lhs_mps,
@@ -541,6 +549,7 @@ pub(crate) fn print(
                 Side::Right,
                 display_options.syntax_highlight,
                 display_options.background_diff_colors,
+                display_options.background_include_whitespace,
                 file_format,
                 display_options.background_color,
                 rhs_mps,
@@ -612,9 +621,12 @@ pub(crate) fn print(
     // TODO: this is largely duplicating the `apply_colors` logic.
     let (lhs_highlights, rhs_highlights) = if display_options.use_color {
         highlight_positions(
+            lhs_src,
+            rhs_src,
             display_options.background_color,
             display_options.syntax_highlight,
             display_options.background_diff_colors,
+            display_options.background_include_whitespace,
             file_format,
             lhs_mps,
             rhs_mps,

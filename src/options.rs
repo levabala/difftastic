@@ -289,7 +289,7 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .value_parser(["on", "off"])
                 .default_value("off")
                 .action(ArgAction::Set)
-                .help("When using background diff colors, include trailing spaces between consecutive changed lines in the background highlight to create continuous visual blocks. Only works when --background-diff-colors is on.")
+                .help("When using background diff colors, include whitespace gaps between changed tokens and trailing spaces between consecutive changed lines in the background highlight to create continuous visual blocks. Only works when --background-diff-colors is on.")
         )
         .arg(
             Arg::new("diff-color-added-bg").long("diff-color-added-bg")

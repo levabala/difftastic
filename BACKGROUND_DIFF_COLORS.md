@@ -99,9 +99,10 @@ Extends background color to fill the entire line width for complete line additio
 **Flag 2: `--background-include-whitespace on/off`**
 Environment variable: `DFT_BACKGROUND_INCLUDE_WHITESPACE`
 
-Includes trailing spaces between consecutive changed lines in the background highlight, creating continuous visual blocks.
+Includes whitespace gaps between changed tokens and trailing spaces between consecutive changed lines in the background highlight, creating continuous visual blocks.
 
 - Applies to all lines with novel content (including partial changes)
+- Colors spaces and tabs between changed spans on the same line
 - Creates solid colored blocks for consecutive changed lines with no gaps
 - Requires `--background-diff-colors on` to be enabled
 - Default: `off`
@@ -112,7 +113,7 @@ Includes trailing spaces between consecutive changed lines in the background hig
 # Full-line backgrounds only (extends complete line changes to full width)
 difftastic --background-diff-colors on --full-line-background on old.js new.js
 
-# Continuous blocks for any changed lines (no gaps between consecutive lines)
+# Continuous blocks for any changed lines (no gaps between changed tokens or consecutive lines)
 difftastic --background-diff-colors on --background-include-whitespace on old.js new.js
 
 # Both together for maximum visual continuity
@@ -129,7 +130,7 @@ difftastic old.js new.js
 
 - **`--full-line-background`**: Use when you want complete line changes (not partial edits) to be more visually prominent by extending the background to the full terminal width. Best for line-level diffs.
 
-- **`--background-include-whitespace`**: Use when you want consecutive changed lines to appear as solid colored blocks without visual gaps. Creates better visual grouping of related changes.
+- **`--background-include-whitespace`**: Use when you want adjacent changed spans and consecutive changed lines to appear as solid colored blocks without visual gaps. Creates better visual grouping of related changes.
 
 - **Both flags together**: Provides the strongest visual distinction for complete line changes while maintaining continuous blocks across consecutive modifications.
 
@@ -137,5 +138,5 @@ difftastic old.js new.js
 
 Both flags are independent and can be used separately or together:
 - `full_line_background` only applies padding to lines that are entirely novel
-- `background_include_whitespace` applies padding to all lines with novel content (full or partial)
+- `background_include_whitespace` applies padding to all lines with novel content (full or partial) and colors whitespace-only gaps between changed spans on the same line
 - When both are enabled, `full_line_background` takes precedence for complete line changes
