@@ -430,7 +430,7 @@ fn merge_adjacent(items: &[(SingleLineSpan, Style)]) -> Vec<(SingleLineSpan, Sty
     merged
 }
 
-fn whitespace_spans_in_changed_regions(
+fn apply_whitespace_background_in_changed_regions(
     src: &str,
     side: Side,
     background: BackgroundColor,
@@ -455,24 +455,8 @@ fn whitespace_spans_in_changed_regions(
         }
     }
 
-    let mut styled_spans_by_line: DftHashMap<LineNumber, Vec<SingleLineSpan>> =
+    let mut whitespace_ranges_by_line: DftHashMap<LineNumber, Vec<SingleLineSpan>> =
         DftHashMap::default();
-
-    for (span, _) in styled_spans {
-        styled_spans_by_line
-            .entry(span.line)
-            .or_insert_with(Vec::new)
-            .push(*span);
-    }
-
-    for spans in styled_spans_by_line.values_mut() {
-        spans.sort_by_key(|span| (span.start_col, span.end_col));
-    }
-
-    let whitespace_style =
-        novel_style(Style::new(), side, background, true, rgb_added, rgb_removed);
-
-    let mut whitespace_spans = vec![];
 
     for (line_num, changed_region) in changed_regions_by_line {
         let Some(line) = src_lines.get(line_num.as_usize()) else {
@@ -496,30 +480,143 @@ fn whitespace_spans_in_changed_regions(
             }
 
             if let Some(start) = whitespace_start.take() {
-                push_unstyled_whitespace_spans(
-                    &mut whitespace_spans,
-                    line_num,
-                    region_start + start,
-                    region_start + offset,
-                    styled_spans_by_line.get(&line_num).map(Vec::as_slice),
-                    whitespace_style,
-                );
+                whitespace_ranges_by_line
+                    .entry(line_num)
+                    .or_insert_with(Vec::new)
+                    .push(SingleLineSpan {
+                        line: line_num,
+                        start_col: (region_start + start) as u32,
+                        end_col: (region_start + offset) as u32,
+                    });
             }
         }
 
         if let Some(start) = whitespace_start {
+            whitespace_ranges_by_line
+                .entry(line_num)
+                .or_insert_with(Vec::new)
+                .push(SingleLineSpan {
+                    line: line_num,
+                    start_col: (region_start + start) as u32,
+                    end_col: region_end as u32,
+                });
+        }
+    }
+
+    let mut styled_spans_by_line: DftHashMap<LineNumber, Vec<SingleLineSpan>> =
+        DftHashMap::default();
+
+    for (span, _) in styled_spans {
+        styled_spans_by_line
+            .entry(span.line)
+            .or_insert_with(Vec::new)
+            .push(*span);
+    }
+
+    for spans in styled_spans_by_line.values_mut() {
+        spans.sort_by_key(|span| (span.start_col, span.end_col));
+    }
+
+    let whitespace_style =
+        novel_style(Style::new(), side, background, true, rgb_added, rgb_removed);
+
+    let mut styled_spans_with_whitespace = Vec::with_capacity(styled_spans.len());
+
+    for (span, style) in styled_spans {
+        push_span_with_whitespace_background(
+            &mut styled_spans_with_whitespace,
+            *span,
+            *style,
+            whitespace_ranges_by_line.get(&span.line).map(Vec::as_slice),
+            side,
+            background,
+            rgb_added,
+            rgb_removed,
+        );
+    }
+
+    for (line_num, whitespace_ranges) in whitespace_ranges_by_line {
+        let styled_spans = styled_spans_by_line.get(&line_num).map(Vec::as_slice);
+
+        for whitespace_range in whitespace_ranges {
             push_unstyled_whitespace_spans(
-                &mut whitespace_spans,
+                &mut styled_spans_with_whitespace,
                 line_num,
-                region_start + start,
-                region_end,
-                styled_spans_by_line.get(&line_num).map(Vec::as_slice),
+                whitespace_range.start_col as usize,
+                whitespace_range.end_col as usize,
+                styled_spans,
                 whitespace_style,
             );
         }
     }
 
-    whitespace_spans
+    styled_spans_with_whitespace
+}
+
+fn push_span_with_whitespace_background(
+    styled_spans: &mut Vec<(SingleLineSpan, Style)>,
+    span: SingleLineSpan,
+    style: Style,
+    whitespace_ranges: Option<&[SingleLineSpan]>,
+    side: Side,
+    background: BackgroundColor,
+    rgb_added: Option<RgbColor>,
+    rgb_removed: Option<RgbColor>,
+) {
+    let Some(whitespace_ranges) = whitespace_ranges else {
+        styled_spans.push((span, style));
+
+        return;
+    };
+
+    let mut next_start = span.start_col;
+
+    for whitespace_range in whitespace_ranges {
+        if whitespace_range.end_col <= next_start {
+            continue;
+        }
+
+        if whitespace_range.start_col >= span.end_col {
+            break;
+        }
+
+        let whitespace_start = max(next_start, whitespace_range.start_col);
+        let whitespace_end = min(span.end_col, whitespace_range.end_col);
+
+        if next_start < whitespace_start {
+            styled_spans.push((
+                SingleLineSpan {
+                    line: span.line,
+                    start_col: next_start,
+                    end_col: whitespace_start,
+                },
+                style,
+            ));
+        }
+
+        styled_spans.push((
+            SingleLineSpan {
+                line: span.line,
+                start_col: whitespace_start,
+                end_col: whitespace_end,
+            },
+            novel_style(style, side, background, true, rgb_added, rgb_removed),
+        ));
+
+        next_start = whitespace_end;
+        if next_start >= span.end_col {
+            return;
+        }
+    }
+
+    styled_spans.push((
+        SingleLineSpan {
+            line: span.line,
+            start_col: next_start,
+            end_col: span.end_col,
+        },
+        style,
+    ));
 }
 
 fn push_unstyled_whitespace_spans(
@@ -1067,7 +1164,7 @@ pub(crate) fn color_positions(
     }
 
     if background_diff_colors && background_include_whitespace {
-        styles.extend(whitespace_spans_in_changed_regions(
+        styles = apply_whitespace_background_in_changed_regions(
             src,
             side,
             background,
@@ -1075,7 +1172,7 @@ pub(crate) fn color_positions(
             &styles,
             rgb_added,
             rgb_removed,
-        ));
+        );
         styles.sort_by_key(|(span, _)| (span.line, span.start_col, span.end_col));
     }
 
@@ -1491,6 +1588,44 @@ mod tests {
     }
 
     #[test]
+    fn background_include_whitespace_styles_existing_uncolored_space_spans() {
+        let positions = color_positions(
+            "for spans in values_mut",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[
+                novel_pos(0, 0, 3),
+                unchanged_normal_pos(0, 3, 4),
+                novel_pos(0, 4, 9),
+                unchanged_normal_pos(0, 9, 10),
+                novel_pos(0, 10, 12),
+                unchanged_normal_pos(0, 12, 13),
+                novel_pos(0, 13, 23),
+            ],
+            Some(RgbColor::new(1, 2, 3)),
+            None,
+        );
+
+        let rendered = split_and_apply(
+            "for spans in values_mut",
+            80,
+            TAB_WIDTH,
+            &positions,
+            Side::Right,
+        );
+
+        assert!(
+            rendered[0].contains("for\x1b[0m\x1b[48;2;1;2;3m \x1b"),
+            "expected existing uncolored space spans to receive a background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
     fn background_include_whitespace_adds_tab_gap_between_novel_spans() {
         let positions = color_positions(
             "foo\tbar",
@@ -1589,6 +1724,17 @@ mod tests {
         MatchedPos {
             kind: MatchKind::Novel {
                 highlight: TokenKind::Atom(AtomKind::Keyword),
+            },
+            pos: span(line, start_col, end_col),
+        }
+    }
+
+    fn unchanged_normal_pos(line: u32, start_col: u32, end_col: u32) -> MatchedPos {
+        MatchedPos {
+            kind: MatchKind::UnchangedToken {
+                highlight: TokenKind::Atom(AtomKind::Normal),
+                self_pos: vec![span(line, start_col, end_col)],
+                opposite_pos: vec![span(line, start_col, end_col)],
             },
             pos: span(line, start_col, end_col),
         }
