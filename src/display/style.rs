@@ -441,6 +441,18 @@ fn apply_whitespace_background_in_changed_regions(
 ) -> Vec<(SingleLineSpan, Style)> {
     let src_lines = split_on_newlines(src).collect::<Vec<_>>();
 
+    let mut mps_by_line: DftHashMap<LineNumber, Vec<&MatchedPos>> = DftHashMap::default();
+    for mp in mps {
+        mps_by_line
+            .entry(mp.pos.line)
+            .or_insert_with(Vec::new)
+            .push(mp);
+    }
+
+    for mps in mps_by_line.values_mut() {
+        mps.sort_by_key(|mp| (mp.pos.start_col, mp.pos.end_col));
+    }
+
     let mut changed_regions_by_line: DftHashMap<LineNumber, SingleLineSpan> = DftHashMap::default();
 
     for mp in mps {
@@ -480,26 +492,26 @@ fn apply_whitespace_background_in_changed_regions(
             }
 
             if let Some(start) = whitespace_start.take() {
-                whitespace_ranges_by_line
-                    .entry(line_num)
-                    .or_insert_with(Vec::new)
-                    .push(SingleLineSpan {
-                        line: line_num,
-                        start_col: (region_start + start) as u32,
-                        end_col: (region_start + offset) as u32,
-                    });
+                push_whitespace_range_between_changes(
+                    &mut whitespace_ranges_by_line,
+                    &mps_by_line,
+                    line,
+                    line_num,
+                    region_start + start,
+                    region_start + offset,
+                );
             }
         }
 
         if let Some(start) = whitespace_start {
-            whitespace_ranges_by_line
-                .entry(line_num)
-                .or_insert_with(Vec::new)
-                .push(SingleLineSpan {
-                    line: line_num,
-                    start_col: (region_start + start) as u32,
-                    end_col: region_end as u32,
-                });
+            push_whitespace_range_between_changes(
+                &mut whitespace_ranges_by_line,
+                &mps_by_line,
+                line,
+                line_num,
+                region_start + start,
+                region_end,
+            );
         }
     }
 
@@ -551,6 +563,71 @@ fn apply_whitespace_background_in_changed_regions(
     }
 
     styled_spans_with_whitespace
+}
+
+fn push_whitespace_range_between_changes(
+    whitespace_ranges_by_line: &mut DftHashMap<LineNumber, Vec<SingleLineSpan>>,
+    mps_by_line: &DftHashMap<LineNumber, Vec<&MatchedPos>>,
+    line: &str,
+    line_num: LineNumber,
+    start_col: usize,
+    end_col: usize,
+) {
+    if whitespace_is_inside_unchanged_region(
+        line,
+        start_col as u32,
+        end_col as u32,
+        mps_by_line.get(&line_num).map(Vec::as_slice),
+    ) {
+        return;
+    }
+
+    whitespace_ranges_by_line
+        .entry(line_num)
+        .or_insert_with(Vec::new)
+        .push(SingleLineSpan {
+            line: line_num,
+            start_col: start_col as u32,
+            end_col: end_col as u32,
+        });
+}
+
+fn whitespace_is_inside_unchanged_region(
+    line: &str,
+    start_col: u32,
+    end_col: u32,
+    mps: Option<&[&MatchedPos]>,
+) -> bool {
+    let mps = mps.unwrap_or_default();
+
+    let previous_mp = mps
+        .iter()
+        .rev()
+        .find(|mp| mp.pos.end_col <= start_col && span_has_non_whitespace(line, mp.pos));
+
+    let next_mp = mps
+        .iter()
+        .find(|mp| mp.pos.start_col >= end_col && span_has_non_whitespace(line, mp.pos));
+
+    matches!(
+        (previous_mp, next_mp),
+        (Some(previous_mp), Some(next_mp))
+            if !previous_mp.kind.is_novel() && !next_mp.kind.is_novel()
+    )
+}
+
+fn span_has_non_whitespace(line: &str, span: SingleLineSpan) -> bool {
+    let line_bytes = byte_len(line);
+    let start_col = span.start_col as usize;
+    let end_col = span.end_col as usize;
+
+    if start_col >= end_col || end_col > line_bytes {
+        return false;
+    }
+
+    substring_by_byte(line, start_col, end_col)
+        .chars()
+        .any(|ch| !ch.is_whitespace())
 }
 
 fn push_span_with_whitespace_background(
@@ -1621,6 +1698,42 @@ mod tests {
         assert!(
             rendered[0].contains("for\x1b[0m\x1b[48;2;1;2;3m \x1b"),
             "expected existing uncolored space spans to receive a background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
+    fn background_include_whitespace_ignores_spaces_inside_unchanged_expression() {
+        let positions = color_positions(
+            "start_col: (region_start + start) as u32,",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[
+                novel_pos(0, 0, 12),
+                unchanged_normal_pos(0, 12, 24),
+                unchanged_normal_pos(0, 25, 26),
+                unchanged_normal_pos(0, 27, 32),
+                novel_pos(0, 32, 40),
+            ],
+            Some(RgbColor::new(1, 2, 3)),
+            None,
+        );
+
+        let rendered = split_and_apply(
+            "start_col: (region_start + start) as u32,",
+            80,
+            TAB_WIDTH,
+            &positions,
+            Side::Right,
+        );
+
+        assert!(
+            rendered[0].contains("region_start + start"),
+            "expected spaces around unchanged + to stay uncolored: {:?}",
             rendered[0]
         );
     }

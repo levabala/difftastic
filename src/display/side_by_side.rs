@@ -827,14 +827,6 @@ pub(crate) fn print(
                     && display_options.full_line_background
                     && is_full_line_novel(*rhs_line_num, &rhs_highlights, rhs_mps);
 
-                // Check if lines have any novel content for whitespace inclusion
-                let lhs_has_novel = display_options.background_diff_colors
-                    && display_options.background_include_whitespace
-                    && lhs_line_novel;
-                let rhs_has_novel = display_options.background_diff_colors
-                    && display_options.background_include_whitespace
-                    && rhs_line_novel;
-
                 for (i, (lhs_line, rhs_line)) in zip_pad_shorter(&lhs_line, &rhs_line)
                     .into_iter()
                     .enumerate()
@@ -853,29 +845,9 @@ pub(crate) fn print(
                             display_options.diff_color_added_bg,
                             display_options.diff_color_removed_bg,
                         );
-                    } else if lhs_has_novel {
-                        // Apply whitespace inclusion for partial changes
-                        lhs_line = pad_line_with_background(
-                            lhs_line,
-                            source_dims.content_display_width,
-                            Side::Left,
-                            display_options.background_color,
-                            display_options.diff_color_added_bg,
-                            display_options.diff_color_removed_bg,
-                        );
                     }
 
                     if rhs_is_full_novel {
-                        rhs_line = pad_line_with_background(
-                            rhs_line,
-                            source_dims.content_display_width,
-                            Side::Right,
-                            display_options.background_color,
-                            display_options.diff_color_added_bg,
-                            display_options.diff_color_removed_bg,
-                        );
-                    } else if rhs_has_novel {
-                        // Apply whitespace inclusion for partial changes
                         rhs_line = pad_line_with_background(
                             rhs_line,
                             source_dims.content_display_width,
