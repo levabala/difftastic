@@ -1316,6 +1316,29 @@ mod tests {
     }
 
     #[test]
+    fn background_include_whitespace_styles_rendered_space_gap() {
+        let positions = color_positions(
+            "foo bar",
+            Side::Right,
+            BackgroundColor::Dark,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
+            Some(RgbColor::new(1, 2, 3)),
+            None,
+        );
+        let rendered = split_and_apply("foo bar", 80, TAB_WIDTH, &positions, Side::Right);
+
+        assert!(
+            rendered[0].contains("\x1b[48;2;1;2;3m \x1b"),
+            "expected the space between changed spans to have a background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
     fn background_include_whitespace_adds_tab_gap_between_novel_spans() {
         let positions = color_positions(
             "foo\tbar",
