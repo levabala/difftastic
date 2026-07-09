@@ -65,6 +65,25 @@ impl RgbColor {
     }
 }
 
+pub(crate) fn content_background_style(style: Style, syntax_background: bool) -> Style {
+    if syntax_background {
+        let background = zenburn("#3f3f3f");
+
+        return style.on_truecolor(background.r, background.g, background.b);
+    }
+
+    style
+}
+
+pub(crate) fn style_content_fragment(s: &str, syntax_background: bool) -> String {
+    if s.is_empty() {
+        return String::new();
+    }
+
+    s.style(content_background_style(Style::new(), syntax_background))
+        .to_string()
+}
+
 /// Find the largest byte offset in `s` that gives the longest
 /// starting substring whose display width does not exceed `width`.
 ///
@@ -177,6 +196,7 @@ pub(crate) fn split_and_apply(
     tab_width: usize,
     styles: &[(SingleLineSpan, Style)],
     side: Side,
+    syntax_background: bool,
 ) -> Vec<String> {
     assert!(
         max_len > 0,
@@ -196,10 +216,10 @@ pub(crate) fn split_and_apply(
                 let part = replace_tabs(part, tab_width);
 
                 let mut parts = String::with_capacity(part.len() + pad);
-                parts.push_str(&part);
+                parts.push_str(&style_content_fragment(&part, syntax_background));
 
                 if matches!(side, Side::Left) {
-                    parts.push_str(&" ".repeat(pad));
+                    parts.push_str(&style_content_fragment(&" ".repeat(pad), syntax_background));
                 }
                 parts
             })
@@ -223,14 +243,14 @@ pub(crate) fn split_and_apply(
 
             // If there's an unstyled gap before the next span.
             if start_col > part_start && prev_style_end < start_col {
-                // Then append that text without styling.
                 let unstyled_start = max(prev_style_end, part_start);
-                res.push_str(&substring_by_byte_replace_tabs(
+                let span_s = substring_by_byte_replace_tabs(
                     line_part,
                     unstyled_start - part_start,
                     start_col - part_start,
                     tab_width,
-                ));
+                );
+                res.push_str(&style_content_fragment(&span_s, syntax_background));
             }
 
             // Apply style to the substring in this span.
@@ -254,17 +274,17 @@ pub(crate) fn split_and_apply(
 
         // Unstyled text after the last span.
         if prev_style_end < part_start + byte_len(line_part) {
-            let span_s = &substring_by_byte_replace_tabs(
+            let span_s = substring_by_byte_replace_tabs(
                 line_part,
                 prev_style_end - part_start,
                 byte_len(line_part),
                 tab_width,
             );
-            res.push_str(span_s);
+            res.push_str(&style_content_fragment(&span_s, syntax_background));
         }
 
         if matches!(side, Side::Left) {
-            res.push_str(&" ".repeat(pad));
+            res.push_str(&style_content_fragment(&" ".repeat(pad), syntax_background));
         }
 
         styled_parts.push(res);
@@ -276,7 +296,7 @@ pub(crate) fn split_and_apply(
 
 /// Return a copy of `line` with styles applied to all the spans
 /// specified.
-fn apply_line(line: &str, styles: &[(SingleLineSpan, Style)]) -> String {
+fn apply_line(line: &str, styles: &[(SingleLineSpan, Style)], syntax_background: bool) -> String {
     let line_bytes = byte_len(line);
     let mut styled_line = String::with_capacity(line.len());
     let mut i = 0;
@@ -292,7 +312,10 @@ fn apply_line(line: &str, styles: &[(SingleLineSpan, Style)]) -> String {
 
         // Unstyled text before the next span.
         if i < start_col {
-            styled_line.push_str(substring_by_byte(line, i, start_col));
+            styled_line.push_str(&style_content_fragment(
+                substring_by_byte(line, i, start_col),
+                syntax_background,
+            ));
         }
 
         // Apply style to the substring in this span.
@@ -304,7 +327,7 @@ fn apply_line(line: &str, styles: &[(SingleLineSpan, Style)]) -> String {
     // Unstyled text after the last span.
     if i < line_bytes {
         let span_s = substring_by_byte(line, i, line_bytes);
-        styled_line.push_str(span_s);
+        styled_line.push_str(&style_content_fragment(span_s, syntax_background));
     }
     styled_line
 }
@@ -328,7 +351,11 @@ fn group_by_line(
 /// styled strings, including trailing newlines.
 ///
 /// Tolerant against lines in `s` being shorter than the spans.
-fn style_lines(lines: &[&str], styles: &[(SingleLineSpan, Style)]) -> Vec<String> {
+fn style_lines(
+    lines: &[&str],
+    styles: &[(SingleLineSpan, Style)],
+    syntax_background: bool,
+) -> Vec<String> {
     let mut ranges_by_line = group_by_line(styles);
 
     let mut styled_lines = Vec::with_capacity(lines.len());
@@ -338,7 +365,7 @@ fn style_lines(lines: &[&str], styles: &[(SingleLineSpan, Style)]) -> Vec<String
             .remove::<LineNumber>(&(i as u32).into())
             .unwrap_or_default();
 
-        styled_line.push_str(&apply_line(line, &ranges));
+        styled_line.push_str(&apply_line(line, &ranges, syntax_background));
         styled_line.push('\n');
         styled_lines.push(styled_line);
     }
@@ -910,6 +937,7 @@ pub(crate) fn color_positions(
     background: BackgroundColor,
     syntax_highlight: bool,
     syntax_color_intensity: u16,
+    syntax_background: bool,
     background_diff_colors: bool,
     background_include_whitespace: bool,
     file_format: &FileFormat,
@@ -919,7 +947,7 @@ pub(crate) fn color_positions(
 ) -> Vec<(SingleLineSpan, Style)> {
     let mut styles = vec![];
     for mp in mps {
-        let mut style = Style::new();
+        let mut style = content_background_style(Style::new(), syntax_background);
         match mp.kind {
             MatchKind::UnchangedToken { highlight, .. } | MatchKind::Ignored { highlight } => {
                 style = maybe_syntax_style(
@@ -931,6 +959,10 @@ pub(crate) fn color_positions(
                 );
             }
             MatchKind::Novel { highlight, .. } => {
+                if background_diff_colors {
+                    style = Style::new();
+                }
+
                 if background_diff_colors && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
@@ -951,6 +983,10 @@ pub(crate) fn color_positions(
                 );
             }
             MatchKind::NovelWord { highlight } => {
+                if background_diff_colors {
+                    style = Style::new();
+                }
+
                 if background_diff_colors && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
@@ -978,6 +1014,10 @@ pub(crate) fn color_positions(
                 }
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
+                if background_diff_colors {
+                    style = Style::new();
+                }
+
                 if background_diff_colors && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
@@ -1022,6 +1062,7 @@ pub(crate) fn apply_colors(
     side: Side,
     syntax_highlight: bool,
     syntax_color_intensity: u16,
+    syntax_background: bool,
     background_diff_colors: bool,
     background_include_whitespace: bool,
     file_format: &FileFormat,
@@ -1036,6 +1077,7 @@ pub(crate) fn apply_colors(
         background,
         syntax_highlight,
         syntax_color_intensity,
+        syntax_background,
         background_diff_colors,
         background_include_whitespace,
         file_format,
@@ -1044,7 +1086,7 @@ pub(crate) fn apply_colors(
         rgb_removed,
     );
     let lines = split_on_newlines(s).collect::<Vec<_>>();
-    style_lines(&lines, &styles)
+    style_lines(&lines, &styles, syntax_background)
 }
 
 fn apply_header_color(
@@ -1241,6 +1283,7 @@ mod tests {
                 Style::new(),
             )],
             Side::Left,
+            false,
         );
         assert_eq!(res, vec!["foo"])
     }
@@ -1260,6 +1303,7 @@ mod tests {
                 Style::new(),
             )],
             Side::Left,
+            false,
         );
         assert_eq!(res, vec!["foobar"])
     }
@@ -1289,6 +1333,7 @@ mod tests {
                 ),
             ],
             Side::Left,
+            false,
         );
         assert_eq!(res, vec!["foo", "bar"])
     }
@@ -1308,6 +1353,7 @@ mod tests {
                 Style::new(),
             )],
             Side::Left,
+            false,
         );
         assert_eq!(res, vec!["foobar", "      "])
     }
@@ -1341,6 +1387,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1364,6 +1411,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1371,7 +1419,7 @@ mod tests {
             Some(RgbColor::new(1, 2, 3)),
             None,
         );
-        let rendered = split_and_apply("foo bar", 80, TAB_WIDTH, &positions, Side::Right);
+        let rendered = split_and_apply("foo bar", 80, TAB_WIDTH, &positions, Side::Right, false);
 
         assert!(
             rendered[0].contains("\x1b[48;2;1;2;3m \x1b"),
@@ -1388,6 +1436,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1395,7 +1444,7 @@ mod tests {
             Some(RgbColor::new(1, 2, 3)),
             None,
         );
-        let rendered = split_and_apply("0, 0, 0", 80, TAB_WIDTH, &positions, Side::Right);
+        let rendered = split_and_apply("0, 0, 0", 80, TAB_WIDTH, &positions, Side::Right, false);
 
         assert!(
             rendered[0].contains(",\x1b[48;2;1;2;3m \x1b"),
@@ -1412,6 +1461,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1435,6 +1485,7 @@ mod tests {
             TAB_WIDTH,
             &positions,
             Side::Right,
+            false,
         );
 
         assert!(
@@ -1458,6 +1509,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1480,6 +1532,7 @@ mod tests {
             TAB_WIDTH,
             &positions,
             Side::Right,
+            false,
         );
 
         assert!(
@@ -1497,6 +1550,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1517,6 +1571,7 @@ mod tests {
             TAB_WIDTH,
             &positions,
             Side::Right,
+            false,
         );
 
         assert!(
@@ -1536,6 +1591,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1559,6 +1615,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             true,
             &FileFormat::PlainText,
@@ -1583,6 +1640,7 @@ mod tests {
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
             false,
+            false,
             true,
             &FileFormat::PlainText,
             &[novel_pos(0, 0, 3), novel_pos(0, 4, 7)],
@@ -1605,6 +1663,7 @@ mod tests {
             BackgroundColor::Dark,
             true,
             DEFAULT_SYNTAX_COLOR_INTENSITY,
+            false,
             true,
             false,
             &FileFormat::PlainText,
@@ -1618,6 +1677,82 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(spans, vec![span(0, 0, 3), span(0, 4, 7)]);
+    }
+
+    #[test]
+    fn syntax_background_styles_unchanged_syntax_span() {
+        let rendered = apply_colors(
+            "let x = 1;",
+            Side::Right,
+            true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
+            true,
+            false,
+            true,
+            &FileFormat::PlainText,
+            BackgroundColor::Dark,
+            &[unchanged_pos(0, 0, 3)],
+            None,
+            None,
+        );
+
+        assert!(
+            rendered[0].contains("48;2;63;63;63"),
+            "expected unchanged syntax span to have Zenburn background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
+    fn syntax_background_styles_unstyled_gaps_and_padding() {
+        let positions = [(
+            span(0, 0, 3),
+            content_background_style(Style::new(), true).bright_green(),
+        )];
+
+        let rendered = split_and_apply("foo bar", 10, TAB_WIDTH, &positions, Side::Left, true);
+
+        assert!(
+            rendered[0].contains("\x1b[48;2;63;63;63m bar\x1b"),
+            "expected unstyled gap to have Zenburn background: {:?}",
+            rendered[0]
+        );
+
+        assert!(
+            rendered[0].contains("\x1b[48;2;63;63;63m   \x1b"),
+            "expected side-by-side padding to have Zenburn background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
+    fn syntax_background_keeps_background_diff_color() {
+        let rendered = apply_colors(
+            "foo",
+            Side::Right,
+            true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
+            true,
+            true,
+            true,
+            &FileFormat::PlainText,
+            BackgroundColor::Dark,
+            &[novel_pos(0, 0, 3)],
+            Some(RgbColor::new(1, 2, 3)),
+            None,
+        );
+
+        assert!(
+            rendered[0].contains("48;2;1;2;3"),
+            "expected changed span to keep custom diff background: {:?}",
+            rendered[0]
+        );
+
+        assert!(
+            !rendered[0].contains("48;2;63;63;63"),
+            "expected changed span not to receive Zenburn background: {:?}",
+            rendered[0]
+        );
     }
 
     fn novel_pos(line: u32, start_col: u32, end_col: u32) -> MatchedPos {

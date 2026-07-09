@@ -48,6 +48,7 @@ pub(crate) struct DisplayOptions {
     pub(crate) num_context_lines: u32,
     pub(crate) syntax_highlight: bool,
     pub(crate) syntax_color_intensity: u16,
+    pub(crate) syntax_background: bool,
     pub(crate) background_diff_colors: bool,
     pub(crate) full_line_background: bool,
     pub(crate) background_include_whitespace: bool,
@@ -72,6 +73,7 @@ impl Default for DisplayOptions {
             num_context_lines: 3,
             syntax_highlight: true,
             syntax_color_intensity: DEFAULT_SYNTAX_COLOR_INTENSITY,
+            syntax_background: false,
             background_diff_colors: false,
             full_line_background: false,
             background_include_whitespace: true,
@@ -275,6 +277,15 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .value_parser(clap::value_parser!(u16).range(0..=200))
                 .action(ArgAction::Set)
                 .help("Adjust syntax foreground color intensity from 0 to 200 percent. Does not affect add/remove diff colors.")
+        )
+        .arg(
+            Arg::new("syntax-background").long("syntax-background")
+                .value_name("on/off")
+                .env("DFT_SYNTAX_BACKGROUND")
+                .value_parser(["on", "off"])
+                .default_value("off")
+                .action(ArgAction::Set)
+                .help("Use the Zenburn background color for rendered source content.")
         )
         .arg(
             Arg::new("background-diff-colors").long("background-diff-colors")
@@ -896,6 +907,11 @@ pub(crate) fn parse_args() -> Mode {
         .get_one("syntax-color-intensity")
         .expect("Always present as we've given clap a default");
 
+    let syntax_background = matches
+        .get_one::<String>("syntax-background")
+        .map(|s| s.as_str())
+        == Some("on");
+
     let background_diff_colors = matches
         .get_one::<String>("background-diff-colors")
         .map(|s| s.as_str())
@@ -1045,6 +1061,7 @@ pub(crate) fn parse_args() -> Mode {
                 num_context_lines,
                 syntax_highlight,
                 syntax_color_intensity,
+                syntax_background,
                 background_diff_colors,
                 full_line_background,
                 background_include_whitespace,
@@ -1092,6 +1109,7 @@ pub(crate) fn parse_args() -> Mode {
         num_context_lines,
         syntax_highlight,
         syntax_color_intensity,
+        syntax_background,
         background_diff_colors,
         full_line_background,
         background_include_whitespace,
@@ -1224,6 +1242,62 @@ mod tests {
         let result = app().try_get_matches_from([
             "difft",
             "--syntax-color-intensity=-1",
+            "sample_files/simple_1.js",
+            "sample_files/simple_2.js",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_syntax_background_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::remove_var("DFT_SYNTAX_BACKGROUND");
+
+        let matches = app()
+            .try_get_matches_from([
+                "difft",
+                "sample_files/simple_1.js",
+                "sample_files/simple_2.js",
+            ])
+            .unwrap();
+
+        let syntax_background = matches
+            .get_one::<String>("syntax-background")
+            .map(|s| s.as_str());
+
+        assert_eq!(syntax_background, Some("off"));
+    }
+
+    #[test]
+    fn test_syntax_background_env_var() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::set_var("DFT_SYNTAX_BACKGROUND", "on");
+
+        let matches = app()
+            .try_get_matches_from([
+                "difft",
+                "sample_files/simple_1.js",
+                "sample_files/simple_2.js",
+            ])
+            .unwrap();
+
+        std::env::remove_var("DFT_SYNTAX_BACKGROUND");
+
+        let syntax_background = matches
+            .get_one::<String>("syntax-background")
+            .map(|s| s.as_str());
+
+        assert_eq!(syntax_background, Some("on"));
+    }
+
+    #[test]
+    fn test_syntax_background_rejects_invalid_value() {
+        let result = app().try_get_matches_from([
+            "difft",
+            "--syntax-background=yes",
             "sample_files/simple_1.js",
             "sample_files/simple_2.js",
         ]);
