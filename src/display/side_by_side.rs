@@ -12,8 +12,9 @@ use crate::{
         context::all_matched_lines_filled,
         hunks::{matched_lines_indexes_for_hunk, Hunk},
         style::{
-            self, apply_colors, apply_line_number_color, color_positions, novel_style,
-            replace_tabs, split_and_apply, BackgroundColor, RgbColor,
+            self, apply_colors, apply_line_number_color, color_positions, content_background_style,
+            novel_style, replace_tabs, split_and_apply, style_content_fragment, BackgroundColor,
+            RgbColor,
         },
     },
     hash::{DftHashMap, DftHashSet},
@@ -39,7 +40,7 @@ fn format_missing_line_num(
     source_dims: &SourceDimensions,
     side: Side,
     is_continuation: bool,
-    use_color: bool,
+    display_options: &DisplayOptions,
 ) -> String {
     let column_width = match side {
         Side::Left => source_dims.lhs_line_nums_width,
@@ -52,9 +53,12 @@ fn format_missing_line_num(
     };
 
     let mut style = Style::new();
-    if use_color {
+
+    if display_options.use_color {
         style = style.dimmed();
     }
+
+    style = content_background_style(style, display_options.syntax_background);
 
     let c = if is_continuation {
         // Always show dots when this line is too long so we had to
@@ -106,7 +110,6 @@ fn display_single_column(
 
     let mut style = Style::new();
     if display_options.use_color {
-        // Always use foreground colors for single column display (never background)
         style = novel_style(
             Style::new(),
             side,
@@ -116,6 +119,8 @@ fn display_single_column(
             None,
         );
     }
+
+    style = content_background_style(style, display_options.syntax_background);
 
     for (i, line) in src_lines.iter().enumerate() {
         let mut formatted_line = String::with_capacity(line.len());
@@ -151,7 +156,7 @@ fn display_line_nums(
             source_dims,
             Side::Left,
             false,
-            display_options.use_color,
+            display_options,
         ),
     };
     let display_rhs_line_num: String = match rhs_line_num {
@@ -164,7 +169,7 @@ fn display_line_nums(
             source_dims,
             Side::Right,
             false,
-            display_options.use_color,
+            display_options,
         ),
     };
 
@@ -821,7 +826,10 @@ pub(crate) fn print(
                         Side::Left,
                         display_options.syntax_background,
                     ),
-                    None => vec![" ".repeat(source_dims.content_display_width)],
+                    None => vec![style_content_fragment(
+                        &" ".repeat(source_dims.content_display_width),
+                        display_options.syntax_background,
+                    )],
                 };
                 let rhs_line = match rhs_line_num {
                     Some(rhs_line_num) => split_and_apply(
@@ -883,7 +891,7 @@ pub(crate) fn print(
                             &source_dims,
                             Side::Left,
                             true,
-                            display_options.use_color,
+                            display_options,
                         );
                         if let Some(line_num) = lhs_line_num {
                             s = apply_line_number_color(
@@ -904,7 +912,7 @@ pub(crate) fn print(
                             &source_dims,
                             Side::Right,
                             true,
-                            display_options.use_color,
+                            display_options,
                         );
                         if let Some(line_num) = rhs_line_num {
                             s = apply_line_number_color(
@@ -969,12 +977,23 @@ mod tests {
             9999,
         );
 
+        let display_options = DisplayOptions {
+            use_color: true,
+            ..Default::default()
+        };
+
         assert_eq!(
-            format_missing_line_num(0.into(), &source_dims, Side::Left, false, true),
+            format_missing_line_num(0.into(), &source_dims, Side::Left, false, &display_options),
             ". ".dimmed().to_string()
         );
+
+        let display_options = DisplayOptions {
+            use_color: false,
+            ..Default::default()
+        };
+
         assert_eq!(
-            format_missing_line_num(0.into(), &source_dims, Side::Left, false, false),
+            format_missing_line_num(0.into(), &source_dims, Side::Left, false, &display_options),
             ". ".to_owned()
         );
     }
@@ -983,13 +1002,44 @@ mod tests {
     fn test_format_missing_line_num_at_end() {
         let source_dims = SourceDimensions::new(80, 1.into(), 1.into(), 1.into(), 1.into(), 9999);
 
+        let display_options = DisplayOptions {
+            use_color: true,
+            ..Default::default()
+        };
+
         assert_eq!(
-            format_missing_line_num(1.into(), &source_dims, Side::Left, false, true),
+            format_missing_line_num(1.into(), &source_dims, Side::Left, false, &display_options),
             "  ".dimmed().to_string()
         );
+
+        let display_options = DisplayOptions {
+            use_color: false,
+            ..Default::default()
+        };
+
         assert_eq!(
-            format_missing_line_num(1.into(), &source_dims, Side::Left, false, false),
+            format_missing_line_num(1.into(), &source_dims, Side::Left, false, &display_options),
             "  ".to_owned()
+        );
+    }
+
+    #[test]
+    fn test_format_missing_line_num_with_syntax_background() {
+        let source_dims = SourceDimensions::new(80, 1.into(), 1.into(), 1.into(), 1.into(), 9999);
+
+        let display_options = DisplayOptions {
+            use_color: true,
+            syntax_background: true,
+            ..Default::default()
+        };
+
+        let rendered =
+            format_missing_line_num(0.into(), &source_dims, Side::Left, false, &display_options);
+
+        assert!(
+            rendered.contains("48;2;63;63;63"),
+            "expected missing line marker to have Zenburn background: {:?}",
+            rendered
         );
     }
 

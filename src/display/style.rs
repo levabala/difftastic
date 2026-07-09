@@ -423,6 +423,7 @@ fn syntax_style(
     atom_kind: AtomKind,
     background: BackgroundColor,
     syntax_color_intensity: u16,
+    syntax_background: bool,
 ) -> Style {
     let style = match atom_kind {
         AtomKind::String(StringKind::StringLiteral) | AtomKind::String(StringKind::Text) => {
@@ -445,10 +446,24 @@ fn syntax_style(
             zenburn("#f0dfaf"),
             syntax_color_intensity,
         ),
-        AtomKind::Type | AtomKind::Punctuation => syntax_foreground_color(
+        AtomKind::Type => syntax_foreground_color(
             style,
             background,
-            zenburn("#8f8f8f"),
+            if syntax_background {
+                zenburn("#dfdfbf")
+            } else {
+                zenburn("#8f8f8f")
+            },
+            syntax_color_intensity,
+        ),
+        AtomKind::Punctuation => syntax_foreground_color(
+            style,
+            background,
+            if syntax_background {
+                zenburn("#cfbfaf")
+            } else {
+                zenburn("#8f8f8f")
+            },
             syntax_color_intensity,
         ),
         AtomKind::Function => syntax_foreground_color(
@@ -490,10 +505,24 @@ fn syntax_style(
         AtomKind::Tag => syntax_foreground_color(
             style,
             background,
-            zenburn("#e89393"),
+            if syntax_background {
+                zenburn("#dca3a3")
+            } else {
+                zenburn("#e89393")
+            },
             syntax_color_intensity,
         ),
-        AtomKind::Attribute | AtomKind::Decorator => syntax_foreground_color(
+        AtomKind::Attribute => syntax_foreground_color(
+            style,
+            background,
+            if syntax_background {
+                zenburn("#dca3a3")
+            } else {
+                zenburn("#ffcfaf")
+            },
+            syntax_color_intensity,
+        ),
+        AtomKind::Decorator => syntax_foreground_color(
             style,
             background,
             zenburn("#ffcfaf"),
@@ -564,6 +593,7 @@ fn maybe_syntax_style(
     background: BackgroundColor,
     syntax_highlight: bool,
     syntax_color_intensity: u16,
+    syntax_background: bool,
 ) -> Style {
     if !syntax_highlight {
         return style;
@@ -573,7 +603,13 @@ fn maybe_syntax_style(
         return style;
     };
 
-    syntax_style(style, atom_kind, background, syntax_color_intensity)
+    syntax_style(
+        style,
+        atom_kind,
+        background,
+        syntax_color_intensity,
+        syntax_background,
+    )
 }
 
 /// Merge spans where the end of one span matches the start of the
@@ -945,6 +981,8 @@ pub(crate) fn color_positions(
     rgb_added: Option<RgbColor>,
     rgb_removed: Option<RgbColor>,
 ) -> Vec<(SingleLineSpan, Style)> {
+    let preserve_syntax_with_diff_background = syntax_background || background_diff_colors;
+
     let mut styles = vec![];
     for mp in mps {
         let mut style = content_background_style(Style::new(), syntax_background);
@@ -956,20 +994,22 @@ pub(crate) fn color_positions(
                     background,
                     syntax_highlight,
                     syntax_color_intensity,
+                    syntax_background,
                 );
             }
             MatchKind::Novel { highlight, .. } => {
-                if background_diff_colors {
+                if preserve_syntax_with_diff_background {
                     style = Style::new();
                 }
 
-                if background_diff_colors && syntax_highlight {
+                if preserve_syntax_with_diff_background && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
                         highlight,
                         background,
                         syntax_highlight,
                         syntax_color_intensity,
+                        syntax_background,
                     );
                 }
 
@@ -977,23 +1017,24 @@ pub(crate) fn color_positions(
                     style,
                     side,
                     background,
-                    background_diff_colors,
+                    preserve_syntax_with_diff_background,
                     rgb_added,
                     rgb_removed,
                 );
             }
             MatchKind::NovelWord { highlight } => {
-                if background_diff_colors {
+                if preserve_syntax_with_diff_background {
                     style = Style::new();
                 }
 
-                if background_diff_colors && syntax_highlight {
+                if preserve_syntax_with_diff_background && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
                         highlight,
                         background,
                         syntax_highlight,
                         syntax_color_intensity,
+                        syntax_background,
                     );
                 }
 
@@ -1001,7 +1042,7 @@ pub(crate) fn color_positions(
                     style,
                     side,
                     background,
-                    background_diff_colors,
+                    preserve_syntax_with_diff_background,
                     rgb_added,
                     rgb_removed,
                 )
@@ -1014,17 +1055,18 @@ pub(crate) fn color_positions(
                 }
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
-                if background_diff_colors {
+                if preserve_syntax_with_diff_background {
                     style = Style::new();
                 }
 
-                if background_diff_colors && syntax_highlight {
+                if preserve_syntax_with_diff_background && syntax_highlight {
                     style = maybe_syntax_style(
                         style,
                         highlight,
                         background,
                         syntax_highlight,
                         syntax_color_intensity,
+                        syntax_background,
                     );
                 }
 
@@ -1032,7 +1074,7 @@ pub(crate) fn color_positions(
                     style,
                     side,
                     background,
-                    background_diff_colors,
+                    preserve_syntax_with_diff_background,
                     rgb_added,
                     rgb_removed,
                 );
@@ -1148,7 +1190,7 @@ pub(crate) fn apply_line_number_color(
     display_options: &DisplayOptions,
 ) -> String {
     if display_options.use_color {
-        let mut style = Style::new();
+        let mut style = content_background_style(Style::new(), display_options.syntax_background);
 
         // The goal here is to choose a style for line numbers that is
         // visually distinct from content.
@@ -1755,11 +1797,76 @@ mod tests {
         );
     }
 
+    #[test]
+    fn syntax_background_preserves_syntax_foreground_on_changed_spans() {
+        let rendered = apply_colors(
+            "foo",
+            Side::Right,
+            true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
+            true,
+            false,
+            true,
+            &FileFormat::PlainText,
+            BackgroundColor::Dark,
+            &[novel_pos_with_highlight(
+                0,
+                0,
+                3,
+                TokenKind::Atom(AtomKind::Tag),
+            )],
+            None,
+            None,
+        );
+
+        assert!(
+            rendered[0].contains("38;2;220;163;163"),
+            "expected changed span to keep syntax foreground: {:?}",
+            rendered[0]
+        );
+
+        assert!(
+            rendered[0].contains(";100m"),
+            "expected changed span to use a diff background: {:?}",
+            rendered[0]
+        );
+
+        assert!(
+            !rendered[0].contains("48;2;63;63;63"),
+            "expected changed span to use diff background instead of Zenburn background: {:?}",
+            rendered[0]
+        );
+    }
+
+    #[test]
+    fn syntax_background_line_number_has_content_background() {
+        let display_options = DisplayOptions {
+            use_color: true,
+            syntax_background: true,
+            ..Default::default()
+        };
+
+        let rendered = apply_line_number_color("1 ", false, Side::Right, &display_options);
+
+        assert!(
+            rendered.contains("48;2;63;63;63"),
+            "expected line number to have Zenburn background: {:?}",
+            rendered
+        );
+    }
+
     fn novel_pos(line: u32, start_col: u32, end_col: u32) -> MatchedPos {
+        novel_pos_with_highlight(line, start_col, end_col, TokenKind::Atom(AtomKind::Keyword))
+    }
+
+    fn novel_pos_with_highlight(
+        line: u32,
+        start_col: u32,
+        end_col: u32,
+        highlight: TokenKind,
+    ) -> MatchedPos {
         MatchedPos {
-            kind: MatchKind::Novel {
-                highlight: TokenKind::Atom(AtomKind::Keyword),
-            },
+            kind: MatchKind::Novel { highlight },
             pos: span(line, start_col, end_col),
         }
     }
