@@ -48,7 +48,10 @@ impl RgbColor {
         let hex = hex.trim_start_matches('#');
 
         if hex.len() != 6 {
-            return Err(format!("Invalid hex color '{}': expected 6 characters (RRGGBB)", hex));
+            return Err(format!(
+                "Invalid hex color '{}': expected 6 characters (RRGGBB)",
+                hex
+            ));
         }
 
         let r = u8::from_str_radix(&hex[0..2], 16)
@@ -388,53 +391,105 @@ pub(crate) fn novel_style(
     }
 }
 
-fn syntax_style(style: Style, atom_kind: AtomKind, background: BackgroundColor) -> Style {
+fn syntax_style(
+    style: Style,
+    atom_kind: AtomKind,
+    background: BackgroundColor,
+    syntax_color_intensity: u16,
+) -> Style {
     let style = match atom_kind {
         AtomKind::String(StringKind::StringLiteral) | AtomKind::String(StringKind::Text) => {
-            foreground_color(style, background, zenburn("#cc9393"), zenburn("#cc9393"))
+            syntax_foreground_color(
+                style,
+                background,
+                zenburn("#cc9393"),
+                syntax_color_intensity,
+            )
         }
-        AtomKind::Comment => {
-            foreground_color(style, background, zenburn("#7f9f7f"), zenburn("#7f9f7f"))
-        }
-        AtomKind::Keyword => {
-            foreground_color(style, background, zenburn("#f0dfaf"), zenburn("#f0dfaf"))
-        }
-        AtomKind::Type | AtomKind::Punctuation => {
-            foreground_color(style, background, zenburn("#8f8f8f"), zenburn("#8f8f8f"))
-        }
-        AtomKind::Function => {
-            foreground_color(style, background, zenburn("#efef8f"), zenburn("#efef8f"))
-        }
-        AtomKind::Property => {
-            foreground_color(style, background, zenburn("#efdcbc"), zenburn("#efdcbc"))
-        }
-        AtomKind::Number => {
-            foreground_color(style, background, zenburn("#8cd0d3"), zenburn("#8cd0d3"))
-        }
-        AtomKind::Constant => {
-            foreground_color(style, background, zenburn("#dca3a3"), zenburn("#dca3a3"))
-        }
-        AtomKind::Variable | AtomKind::Normal => {
-            foreground_color(style, background, zenburn("#dcdccc"), zenburn("#dcdccc"))
-        }
-        AtomKind::Operator => {
-            foreground_color(style, background, zenburn("#f0efd0"), zenburn("#f0efd0"))
-        }
-        AtomKind::Tag => {
-            foreground_color(style, background, zenburn("#e89393"), zenburn("#e89393"))
-        }
-        AtomKind::Attribute | AtomKind::Decorator => {
-            foreground_color(style, background, zenburn("#ffcfaf"), zenburn("#ffcfaf"))
-        }
-        AtomKind::Parameter => {
-            foreground_color(style, background, zenburn("#ffcfaf"), zenburn("#ffcfaf"))
-        }
-        AtomKind::Constructor | AtomKind::Namespace => {
-            foreground_color(style, background, zenburn("#dfaf8f"), zenburn("#dfaf8f"))
-        }
-        AtomKind::Label => {
-            foreground_color(style, background, zenburn("#dfcfaf"), zenburn("#dfcfaf"))
-        }
+        AtomKind::Comment => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#7f9f7f"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Keyword => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#f0dfaf"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Type | AtomKind::Punctuation => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#8f8f8f"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Function => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#efef8f"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Property => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#efdcbc"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Number => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#8cd0d3"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Constant => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#dca3a3"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Variable | AtomKind::Normal => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#dcdccc"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Operator => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#f0efd0"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Tag => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#e89393"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Attribute | AtomKind::Decorator => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#ffcfaf"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Parameter => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#ffcfaf"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Constructor | AtomKind::Namespace => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#dfaf8f"),
+            syntax_color_intensity,
+        ),
+        AtomKind::Label => syntax_foreground_color(
+            style,
+            background,
+            zenburn("#dfcfaf"),
+            syntax_color_intensity,
+        ),
         AtomKind::TreeSitterError => style.purple(),
     };
 
@@ -445,19 +500,35 @@ fn zenburn(hex: &str) -> RgbColor {
     RgbColor::from_hex(hex).expect("Zenburn colors should be valid hex")
 }
 
-fn foreground_color(
+fn syntax_foreground_color(
     style: Style,
-    background: BackgroundColor,
-    dark_background_color: RgbColor,
-    light_background_color: RgbColor,
+    _background: BackgroundColor,
+    color: RgbColor,
+    syntax_color_intensity: u16,
 ) -> Style {
-    let color = if background.is_dark() {
-        dark_background_color
-    } else {
-        light_background_color
-    };
+    let color = syntax_color_with_intensity(color, syntax_color_intensity);
 
     style.truecolor(color.r, color.g, color.b)
+}
+
+fn syntax_color_with_intensity(color: RgbColor, syntax_color_intensity: u16) -> RgbColor {
+    let normal = zenburn("#dcdccc");
+
+    RgbColor::new(
+        color_component_with_intensity(normal.r, color.r, syntax_color_intensity),
+        color_component_with_intensity(normal.g, color.g, syntax_color_intensity),
+        color_component_with_intensity(normal.b, color.b, syntax_color_intensity),
+    )
+}
+
+fn color_component_with_intensity(normal: u8, target: u8, syntax_color_intensity: u16) -> u8 {
+    let normal = f32::from(normal);
+    let target = f32::from(target);
+    let intensity = f32::from(syntax_color_intensity) / 100.0;
+
+    (normal + (target - normal) * intensity)
+        .round()
+        .clamp(0.0, 255.0) as u8
 }
 
 fn maybe_syntax_style(
@@ -465,6 +536,7 @@ fn maybe_syntax_style(
     highlight: TokenKind,
     background: BackgroundColor,
     syntax_highlight: bool,
+    syntax_color_intensity: u16,
 ) -> Style {
     if !syntax_highlight {
         return style;
@@ -474,7 +546,7 @@ fn maybe_syntax_style(
         return style;
     };
 
-    syntax_style(style, atom_kind, background)
+    syntax_style(style, atom_kind, background, syntax_color_intensity)
 }
 
 /// Merge spans where the end of one span matches the start of the
@@ -818,7 +890,6 @@ fn push_unstyled_whitespace_spans(
 
         unstyled_start = max(unstyled_start, styled_span.end_col);
         if unstyled_start >= end_col {
-
             return;
         }
     }
@@ -838,6 +909,7 @@ pub(crate) fn color_positions(
     side: Side,
     background: BackgroundColor,
     syntax_highlight: bool,
+    syntax_color_intensity: u16,
     background_diff_colors: bool,
     background_include_whitespace: bool,
     file_format: &FileFormat,
@@ -850,11 +922,23 @@ pub(crate) fn color_positions(
         let mut style = Style::new();
         match mp.kind {
             MatchKind::UnchangedToken { highlight, .. } | MatchKind::Ignored { highlight } => {
-                style = maybe_syntax_style(style, highlight, background, syntax_highlight);
+                style = maybe_syntax_style(
+                    style,
+                    highlight,
+                    background,
+                    syntax_highlight,
+                    syntax_color_intensity,
+                );
             }
             MatchKind::Novel { highlight, .. } => {
                 if background_diff_colors && syntax_highlight {
-                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
+                    style = maybe_syntax_style(
+                        style,
+                        highlight,
+                        background,
+                        syntax_highlight,
+                        syntax_color_intensity,
+                    );
                 }
 
                 style = novel_style(
@@ -865,11 +949,16 @@ pub(crate) fn color_positions(
                     rgb_added,
                     rgb_removed,
                 );
-
             }
             MatchKind::NovelWord { highlight } => {
                 if background_diff_colors && syntax_highlight {
-                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
+                    style = maybe_syntax_style(
+                        style,
+                        highlight,
+                        background,
+                        syntax_highlight,
+                        syntax_color_intensity,
+                    );
                 }
 
                 style = novel_style(
@@ -890,7 +979,13 @@ pub(crate) fn color_positions(
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
                 if background_diff_colors && syntax_highlight {
-                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
+                    style = maybe_syntax_style(
+                        style,
+                        highlight,
+                        background,
+                        syntax_highlight,
+                        syntax_color_intensity,
+                    );
                 }
 
                 style = novel_style(
@@ -926,6 +1021,7 @@ pub(crate) fn apply_colors(
     s: &str,
     side: Side,
     syntax_highlight: bool,
+    syntax_color_intensity: u16,
     background_diff_colors: bool,
     background_include_whitespace: bool,
     file_format: &FileFormat,
@@ -939,6 +1035,7 @@ pub(crate) fn apply_colors(
         side,
         background,
         syntax_highlight,
+        syntax_color_intensity,
         background_diff_colors,
         background_include_whitespace,
         file_format,
@@ -1018,7 +1115,15 @@ pub(crate) fn apply_line_number_color(
             // and bold. This works well for syntactic diffs, where
             // most content is not bold.
             // Note: Line numbers always use foreground colors, not background colors
-            style = novel_style(style, side, display_options.background_color, false, None, None).bold();
+            style = novel_style(
+                style,
+                side,
+                display_options.background_color,
+                false,
+                None,
+                None,
+            )
+            .bold();
         } else {
             // For unchanged lines, dim the line numbers so it's
             // clearly separate from the content.
@@ -1079,6 +1184,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::options::DEFAULT_SYNTAX_COLOR_INTENSITY;
 
     #[test]
     fn split_string_simple() {
@@ -1207,12 +1313,34 @@ mod tests {
     }
 
     #[test]
+    fn syntax_color_intensity_100_returns_original_zenburn_color() {
+        let color = syntax_color_with_intensity(zenburn("#cc9393"), 100);
+
+        assert_eq!(color, zenburn("#cc9393"));
+    }
+
+    #[test]
+    fn syntax_color_intensity_0_returns_zenburn_normal_foreground() {
+        let color = syntax_color_with_intensity(zenburn("#cc9393"), 0);
+
+        assert_eq!(color, zenburn("#dcdccc"));
+    }
+
+    #[test]
+    fn syntax_color_intensity_200_extrapolates_and_clamps_channels() {
+        let color = syntax_color_with_intensity(zenburn("#ffcfaf"), 200);
+
+        assert_eq!(color, RgbColor::new(255, 194, 146));
+    }
+
+    #[test]
     fn background_include_whitespace_adds_space_gap_between_novel_spans() {
         let positions = color_positions(
             "foo bar",
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1225,14 +1353,7 @@ mod tests {
             .map(|(span, _)| span)
             .collect::<Vec<_>>();
 
-        assert_eq!(
-            spans,
-            vec![
-                span(0, 0, 3),
-                span(0, 3, 4),
-                span(0, 4, 7),
-            ]
-        );
+        assert_eq!(spans, vec![span(0, 0, 3), span(0, 3, 4), span(0, 4, 7),]);
     }
 
     #[test]
@@ -1242,6 +1363,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1265,14 +1387,11 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
-            &[
-                novel_pos(0, 0, 1),
-                novel_pos(0, 3, 4),
-                novel_pos(0, 6, 7),
-            ],
+            &[novel_pos(0, 0, 1), novel_pos(0, 3, 4), novel_pos(0, 6, 7)],
             Some(RgbColor::new(1, 2, 3)),
             None,
         );
@@ -1292,6 +1411,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1337,6 +1457,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1375,6 +1496,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1413,6 +1535,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1425,14 +1548,7 @@ mod tests {
             .map(|(span, _)| span)
             .collect::<Vec<_>>();
 
-        assert_eq!(
-            spans,
-            vec![
-                span(0, 0, 3),
-                span(0, 3, 4),
-                span(0, 4, 7),
-            ]
-        );
+        assert_eq!(spans, vec![span(0, 0, 3), span(0, 3, 4), span(0, 4, 7),]);
     }
 
     #[test]
@@ -1442,6 +1558,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             true,
             &FileFormat::PlainText,
@@ -1464,6 +1581,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             false,
             true,
             &FileFormat::PlainText,
@@ -1486,6 +1604,7 @@ mod tests {
             Side::Right,
             BackgroundColor::Dark,
             true,
+            DEFAULT_SYNTAX_COLOR_INTENSITY,
             true,
             false,
             &FileFormat::PlainText,

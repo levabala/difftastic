@@ -283,6 +283,7 @@ fn highlight_positions(
     rhs_src: &str,
     background: BackgroundColor,
     syntax_highlight: bool,
+    syntax_color_intensity: u16,
     background_diff_colors: bool,
     background_include_whitespace: bool,
     file_format: &FileFormat,
@@ -299,6 +300,7 @@ fn highlight_positions(
         Side::Left,
         background,
         syntax_highlight,
+        syntax_color_intensity,
         background_diff_colors,
         background_include_whitespace,
         file_format,
@@ -319,6 +321,7 @@ fn highlight_positions(
         Side::Right,
         background,
         syntax_highlight,
+        syntax_color_intensity,
         background_diff_colors,
         background_include_whitespace,
         file_format,
@@ -417,7 +420,9 @@ fn pad_line_with_background(
             true, // use_background
             rgb_added,
             rgb_removed,
-        ).style(padding).to_string();
+        )
+        .style(padding)
+        .to_string();
 
         line.push_str(&styled_padding);
     }
@@ -536,6 +541,7 @@ pub(crate) fn print(
                 lhs_src,
                 Side::Left,
                 display_options.syntax_highlight,
+                display_options.syntax_color_intensity,
                 display_options.background_diff_colors,
                 display_options.background_include_whitespace,
                 file_format,
@@ -548,6 +554,7 @@ pub(crate) fn print(
                 rhs_src,
                 Side::Right,
                 display_options.syntax_highlight,
+                display_options.syntax_color_intensity,
                 display_options.background_diff_colors,
                 display_options.background_include_whitespace,
                 file_format,
@@ -625,6 +632,7 @@ pub(crate) fn print(
             rhs_src,
             display_options.background_color,
             display_options.syntax_highlight,
+            display_options.syntax_color_intensity,
             display_options.background_diff_colors,
             display_options.background_include_whitespace,
             file_format,

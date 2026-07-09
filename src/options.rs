@@ -26,6 +26,7 @@ pub(crate) const DEFAULT_GRAPH_LIMIT: usize = 3_000_000;
 pub(crate) const DEFAULT_PARSE_ERROR_LIMIT: usize = 0;
 
 pub(crate) const DEFAULT_TAB_WIDTH: usize = 4;
+pub(crate) const DEFAULT_SYNTAX_COLOR_INTENSITY: u16 = 100;
 
 pub(crate) const USAGE: &str = concat!(env!("CARGO_BIN_NAME"), " [OPTIONS] OLD-PATH NEW-PATH");
 
@@ -46,6 +47,7 @@ pub(crate) struct DisplayOptions {
     pub(crate) terminal_width: usize,
     pub(crate) num_context_lines: u32,
     pub(crate) syntax_highlight: bool,
+    pub(crate) syntax_color_intensity: u16,
     pub(crate) background_diff_colors: bool,
     pub(crate) full_line_background: bool,
     pub(crate) background_include_whitespace: bool,
@@ -69,6 +71,7 @@ impl Default for DisplayOptions {
             terminal_width: DEFAULT_TERMINAL_WIDTH,
             num_context_lines: 3,
             syntax_highlight: true,
+            syntax_color_intensity: DEFAULT_SYNTAX_COLOR_INTENSITY,
             background_diff_colors: false,
             full_line_background: false,
             background_include_whitespace: true,
@@ -263,6 +266,15 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .default_value("on")
                 .action(ArgAction::Set)
                 .help("Enable or disable syntax highlighting.")
+        )
+        .arg(
+            Arg::new("syntax-color-intensity").long("syntax-color-intensity")
+                .value_name("PERCENT")
+                .env("DFT_SYNTAX_COLOR_INTENSITY")
+                .default_value("100")
+                .value_parser(clap::value_parser!(u16).range(0..=200))
+                .action(ArgAction::Set)
+                .help("Adjust syntax foreground color intensity from 0 to 200 percent. Does not affect add/remove diff colors.")
         )
         .arg(
             Arg::new("background-diff-colors").long("background-diff-colors")
@@ -880,6 +892,10 @@ pub(crate) fn parse_args() -> Mode {
         .map(|s| s.as_str())
         == Some("on");
 
+    let syntax_color_intensity = *matches
+        .get_one("syntax-color-intensity")
+        .expect("Always present as we've given clap a default");
+
     let background_diff_colors = matches
         .get_one::<String>("background-diff-colors")
         .map(|s| s.as_str())
@@ -905,15 +921,15 @@ pub(crate) fn parse_args() -> Mode {
             }
         });
 
-    let diff_color_removed_bg = matches
-        .get_one::<String>("diff-color-removed-bg")
-        .and_then(|hex| match RgbColor::from_hex(hex) {
+    let diff_color_removed_bg = matches.get_one::<String>("diff-color-removed-bg").and_then(
+        |hex| match RgbColor::from_hex(hex) {
             Ok(color) => Some(color),
             Err(e) => {
                 print_error(&e, use_color);
                 std::process::exit(EXIT_BAD_ARGUMENTS);
             }
-        });
+        },
+    );
 
     let sort_paths = matches.get_flag("sort-paths");
 
@@ -1028,6 +1044,7 @@ pub(crate) fn parse_args() -> Mode {
                 terminal_width,
                 num_context_lines,
                 syntax_highlight,
+                syntax_color_intensity,
                 background_diff_colors,
                 full_line_background,
                 background_include_whitespace,
@@ -1074,6 +1091,7 @@ pub(crate) fn parse_args() -> Mode {
         terminal_width,
         num_context_lines,
         syntax_highlight,
+        syntax_color_intensity,
         background_diff_colors,
         full_line_background,
         background_include_whitespace,
@@ -1140,10 +1158,77 @@ fn detect_color_support() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_app() {
         app().debug_assert();
+    }
+
+    #[test]
+    fn test_syntax_color_intensity_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::remove_var("DFT_SYNTAX_COLOR_INTENSITY");
+
+        let matches = app()
+            .try_get_matches_from([
+                "difft",
+                "sample_files/simple_1.js",
+                "sample_files/simple_2.js",
+            ])
+            .unwrap();
+
+        let syntax_color_intensity = *matches.get_one::<u16>("syntax-color-intensity").unwrap();
+
+        assert_eq!(syntax_color_intensity, DEFAULT_SYNTAX_COLOR_INTENSITY);
+    }
+
+    #[test]
+    fn test_syntax_color_intensity_env_var() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::set_var("DFT_SYNTAX_COLOR_INTENSITY", "125");
+
+        let matches = app()
+            .try_get_matches_from([
+                "difft",
+                "sample_files/simple_1.js",
+                "sample_files/simple_2.js",
+            ])
+            .unwrap();
+
+        std::env::remove_var("DFT_SYNTAX_COLOR_INTENSITY");
+
+        let syntax_color_intensity = *matches.get_one::<u16>("syntax-color-intensity").unwrap();
+
+        assert_eq!(syntax_color_intensity, 125);
+    }
+
+    #[test]
+    fn test_syntax_color_intensity_rejects_too_large_value() {
+        let result = app().try_get_matches_from([
+            "difft",
+            "--syntax-color-intensity=201",
+            "sample_files/simple_1.js",
+            "sample_files/simple_2.js",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_syntax_color_intensity_rejects_negative_value() {
+        let result = app().try_get_matches_from([
+            "difft",
+            "--syntax-color-intensity=-1",
+            "sample_files/simple_1.js",
+            "sample_files/simple_2.js",
+        ]);
+
+        assert!(result.is_err());
     }
 
     #[test]
