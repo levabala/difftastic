@@ -390,122 +390,59 @@ pub(crate) fn novel_style(
 
 fn syntax_style(style: Style, atom_kind: AtomKind, background: BackgroundColor) -> Style {
     let style = match atom_kind {
-        AtomKind::String(StringKind::StringLiteral) => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(152, 195, 121),
-                RgbColor::new(0, 128, 0),
-            )
+        AtomKind::String(StringKind::StringLiteral) | AtomKind::String(StringKind::Text) => {
+            foreground_color(style, background, zenburn("#cc9393"), zenburn("#cc9393"))
         }
-        AtomKind::String(StringKind::Text) => style,
         AtomKind::Comment => {
-            let style = style.italic();
-
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(92, 124, 153),
-                RgbColor::new(79, 96, 114),
-            )
+            foreground_color(style, background, zenburn("#7f9f7f"), zenburn("#7f9f7f"))
         }
-        AtomKind::Keyword | AtomKind::Type => style.bold(),
+        AtomKind::Keyword => {
+            foreground_color(style, background, zenburn("#f0dfaf"), zenburn("#f0dfaf"))
+        }
+        AtomKind::Type | AtomKind::Punctuation => {
+            foreground_color(style, background, zenburn("#8f8f8f"), zenburn("#8f8f8f"))
+        }
         AtomKind::Function => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(229, 192, 123),
-                RgbColor::new(148, 92, 0),
-            )
+            foreground_color(style, background, zenburn("#efef8f"), zenburn("#efef8f"))
         }
         AtomKind::Property => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(97, 175, 239),
-                RgbColor::new(0, 99, 177),
-            )
+            foreground_color(style, background, zenburn("#efdcbc"), zenburn("#efdcbc"))
         }
         AtomKind::Number => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(181, 206, 168),
-                RgbColor::new(9, 134, 88),
-            )
+            foreground_color(style, background, zenburn("#8cd0d3"), zenburn("#8cd0d3"))
         }
         AtomKind::Constant => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(198, 120, 221),
-                RgbColor::new(128, 71, 150),
-            )
+            foreground_color(style, background, zenburn("#dca3a3"), zenburn("#dca3a3"))
         }
-        AtomKind::Variable => style,
-        AtomKind::Operator => style,
-        AtomKind::Punctuation => style,
+        AtomKind::Variable | AtomKind::Normal => {
+            foreground_color(style, background, zenburn("#dcdccc"), zenburn("#dcdccc"))
+        }
+        AtomKind::Operator => {
+            foreground_color(style, background, zenburn("#f0efd0"), zenburn("#f0efd0"))
+        }
         AtomKind::Tag => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(86, 182, 194),
-                RgbColor::new(0, 108, 132),
-            )
+            foreground_color(style, background, zenburn("#e89393"), zenburn("#e89393"))
         }
-        AtomKind::Attribute => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(224, 108, 117),
-                RgbColor::new(168, 52, 64),
-            )
+        AtomKind::Attribute | AtomKind::Decorator => {
+            foreground_color(style, background, zenburn("#ffcfaf"), zenburn("#ffcfaf"))
         }
         AtomKind::Parameter => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(209, 154, 102),
-                RgbColor::new(158, 86, 21),
-            )
+            foreground_color(style, background, zenburn("#ffcfaf"), zenburn("#ffcfaf"))
         }
-        AtomKind::Constructor => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(78, 201, 176),
-                RgbColor::new(0, 126, 102),
-            )
-        }
-        AtomKind::Namespace => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(86, 182, 194),
-                RgbColor::new(0, 108, 132),
-            )
-        }
-        AtomKind::Decorator => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(198, 120, 221),
-                RgbColor::new(128, 71, 150),
-            )
+        AtomKind::Constructor | AtomKind::Namespace => {
+            foreground_color(style, background, zenburn("#dfaf8f"), zenburn("#dfaf8f"))
         }
         AtomKind::Label => {
-            foreground_color(
-                style,
-                background,
-                RgbColor::new(220, 220, 170),
-                RgbColor::new(108, 108, 72),
-            )
+            foreground_color(style, background, zenburn("#dfcfaf"), zenburn("#dfcfaf"))
         }
         AtomKind::TreeSitterError => style.purple(),
-        AtomKind::Normal => style,
     };
 
     style
+}
+
+fn zenburn(hex: &str) -> RgbColor {
+    RgbColor::from_hex(hex).expect("Zenburn colors should be valid hex")
 }
 
 fn foreground_color(
@@ -929,23 +866,6 @@ pub(crate) fn color_positions(
                     rgb_removed,
                 );
 
-                if syntax_highlight
-                    && !background_diff_colors
-                    && matches!(
-                        highlight,
-                        TokenKind::Delimiter
-                            | TokenKind::Atom(AtomKind::Keyword)
-                            | TokenKind::Atom(AtomKind::Type)
-                    )
-                {
-                    style = style.bold();
-                }
-
-                if !background_diff_colors
-                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
-                {
-                    style = style.italic();
-                }
             }
             MatchKind::NovelWord { highlight } => {
                 if background_diff_colors && syntax_highlight {
@@ -967,13 +887,6 @@ pub(crate) fn color_positions(
                 if matches!(file_format, FileFormat::SupportedLanguage(_)) {
                     style = style.underline();
                 }
-
-                if !background_diff_colors
-                    && syntax_highlight
-                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
-                {
-                    style = style.italic();
-                }
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
                 if background_diff_colors && syntax_highlight {
@@ -988,13 +901,6 @@ pub(crate) fn color_positions(
                     rgb_added,
                     rgb_removed,
                 );
-
-                if !background_diff_colors
-                    && syntax_highlight
-                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
-                {
-                    style = style.italic();
-                }
             }
         };
         styles.push((mp.pos, style));
@@ -1456,7 +1362,7 @@ mod tests {
         );
 
         assert!(
-            rendered[0].contains("for\x1b[0m\x1b[48;2;1;2;3m \x1b"),
+            rendered[0].contains("for\x1b[0m\x1b[38;2;220;220;204;48;2;1;2;3m \x1b"),
             "expected existing uncolored space spans to receive a background: {:?}",
             rendered[0]
         );
@@ -1492,7 +1398,9 @@ mod tests {
         );
 
         assert!(
-            rendered[0].contains("region_start + start"),
+            rendered[0].contains(
+                "\x1b[38;2;220;220;204mregion_start\x1b[0m \x1b[38;2;220;220;204m+\x1b[0m \x1b[38;2;220;220;204mstart"
+            ),
             "expected spaces around unchanged + to stay uncolored: {:?}",
             rendered[0]
         );
