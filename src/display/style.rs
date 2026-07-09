@@ -388,6 +388,158 @@ pub(crate) fn novel_style(
     }
 }
 
+fn syntax_style(style: Style, atom_kind: AtomKind, background: BackgroundColor) -> Style {
+    let style = match atom_kind {
+        AtomKind::String(StringKind::StringLiteral) => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(152, 195, 121),
+                RgbColor::new(0, 128, 0),
+            )
+        }
+        AtomKind::String(StringKind::Text) => style,
+        AtomKind::Comment => {
+            let style = style.italic();
+
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(92, 124, 153),
+                RgbColor::new(79, 96, 114),
+            )
+        }
+        AtomKind::Keyword | AtomKind::Type => style.bold(),
+        AtomKind::Function => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(229, 192, 123),
+                RgbColor::new(148, 92, 0),
+            )
+        }
+        AtomKind::Property => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(97, 175, 239),
+                RgbColor::new(0, 99, 177),
+            )
+        }
+        AtomKind::Number => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(181, 206, 168),
+                RgbColor::new(9, 134, 88),
+            )
+        }
+        AtomKind::Constant => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(198, 120, 221),
+                RgbColor::new(128, 71, 150),
+            )
+        }
+        AtomKind::Variable => style,
+        AtomKind::Operator => style,
+        AtomKind::Punctuation => style,
+        AtomKind::Tag => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(86, 182, 194),
+                RgbColor::new(0, 108, 132),
+            )
+        }
+        AtomKind::Attribute => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(224, 108, 117),
+                RgbColor::new(168, 52, 64),
+            )
+        }
+        AtomKind::Parameter => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(209, 154, 102),
+                RgbColor::new(158, 86, 21),
+            )
+        }
+        AtomKind::Constructor => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(78, 201, 176),
+                RgbColor::new(0, 126, 102),
+            )
+        }
+        AtomKind::Namespace => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(86, 182, 194),
+                RgbColor::new(0, 108, 132),
+            )
+        }
+        AtomKind::Decorator => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(198, 120, 221),
+                RgbColor::new(128, 71, 150),
+            )
+        }
+        AtomKind::Label => {
+            foreground_color(
+                style,
+                background,
+                RgbColor::new(220, 220, 170),
+                RgbColor::new(108, 108, 72),
+            )
+        }
+        AtomKind::TreeSitterError => style.purple(),
+        AtomKind::Normal => style,
+    };
+
+    style
+}
+
+fn foreground_color(
+    style: Style,
+    background: BackgroundColor,
+    dark_background_color: RgbColor,
+    light_background_color: RgbColor,
+) -> Style {
+    let color = if background.is_dark() {
+        dark_background_color
+    } else {
+        light_background_color
+    };
+
+    style.truecolor(color.r, color.g, color.b)
+}
+
+fn maybe_syntax_style(
+    style: Style,
+    highlight: TokenKind,
+    background: BackgroundColor,
+    syntax_highlight: bool,
+) -> Style {
+    if !syntax_highlight {
+        return style;
+    }
+
+    let TokenKind::Atom(atom_kind) = highlight else {
+        return style;
+    };
+
+    syntax_style(style, atom_kind, background)
+}
+
 /// Merge spans where the end of one span matches the start of the
 /// next span.
 ///
@@ -761,228 +913,22 @@ pub(crate) fn color_positions(
         let mut style = Style::new();
         match mp.kind {
             MatchKind::UnchangedToken { highlight, .. } | MatchKind::Ignored { highlight } => {
-                if syntax_highlight {
-                    if let TokenKind::Atom(atom_kind) = highlight {
-                        match atom_kind {
-                            AtomKind::String(StringKind::StringLiteral) => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::String(StringKind::Text) => {}
-                            AtomKind::Comment => {
-                                style = style.italic();
-                                style = if background.is_dark() {
-                                    style.bright_blue()
-                                } else {
-                                    style.blue()
-                                };
-                            }
-                            AtomKind::Keyword | AtomKind::Type => {
-                                style = style.bold();
-                            }
-                            AtomKind::Function => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Property => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Number => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Constant => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::Variable => {}
-                            AtomKind::Operator => {}
-                            AtomKind::Punctuation => {}
-                            AtomKind::Tag => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Attribute => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Parameter => {
-                                style = if background.is_dark() {
-                                    style.cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Constructor => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Namespace => {
-                                style = if background.is_dark() {
-                                    style.bright_green()
-                                } else {
-                                    style.green()
-                                };
-                            }
-                            AtomKind::Decorator => {
-                                style = if background.is_dark() {
-                                    style.yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Label => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::TreeSitterError => style = style.purple(),
-                            AtomKind::Normal => {}
-                        }
-                    }
-                }
+                style = maybe_syntax_style(style, highlight, background, syntax_highlight);
             }
             MatchKind::Novel { highlight, .. } => {
-                // Apply syntax highlighting foreground colors when using background diff colors
                 if background_diff_colors && syntax_highlight {
-                    if let TokenKind::Atom(atom_kind) = highlight {
-                        match atom_kind {
-                            AtomKind::String(StringKind::StringLiteral) => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::String(StringKind::Text) => {}
-                            AtomKind::Comment => {
-                                style = style.italic();
-                                style = if background.is_dark() {
-                                    style.bright_blue()
-                                } else {
-                                    style.blue()
-                                };
-                            }
-                            AtomKind::Keyword | AtomKind::Type => {
-                                style = style.bold();
-                            }
-                            AtomKind::Function => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Property => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Number => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Constant => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::Variable => {}
-                            AtomKind::Operator => {}
-                            AtomKind::Punctuation => {}
-                            AtomKind::Tag => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Attribute => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Parameter => {
-                                style = if background.is_dark() {
-                                    style.cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Constructor => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Namespace => {
-                                style = if background.is_dark() {
-                                    style.bright_green()
-                                } else {
-                                    style.green()
-                                };
-                            }
-                            AtomKind::Decorator => {
-                                style = if background.is_dark() {
-                                    style.yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Label => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::TreeSitterError => style = style.purple(),
-                            AtomKind::Normal => {}
-                        }
-                    }
+                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
                 }
 
-                // Apply diff colors (foreground or background based on flag)
-                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed);
+                style = novel_style(
+                    style,
+                    side,
+                    background,
+                    background_diff_colors,
+                    rgb_added,
+                    rgb_removed,
+                );
 
-                // Apply bold/italic for specific tokens (if not already applied above)
                 if syntax_highlight
                     && !background_diff_colors
                     && matches!(
@@ -994,121 +940,27 @@ pub(crate) fn color_positions(
                 {
                     style = style.bold();
                 }
-                if !background_diff_colors && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+
+                if !background_diff_colors
+                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
+                {
                     style = style.italic();
                 }
             }
             MatchKind::NovelWord { highlight } => {
-                // Apply syntax highlighting foreground colors when using background diff colors
                 if background_diff_colors && syntax_highlight {
-                    if let TokenKind::Atom(atom_kind) = highlight {
-                        match atom_kind {
-                            AtomKind::String(StringKind::StringLiteral) => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::String(StringKind::Text) => {}
-                            AtomKind::Comment => {
-                                style = style.italic();
-                                style = if background.is_dark() {
-                                    style.bright_blue()
-                                } else {
-                                    style.blue()
-                                };
-                            }
-                            AtomKind::Keyword | AtomKind::Type => {
-                                style = style.bold();
-                            }
-                            AtomKind::Function => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Property => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Number => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Constant => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::Variable => {}
-                            AtomKind::Operator => {}
-                            AtomKind::Punctuation => {}
-                            AtomKind::Tag => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Attribute => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Parameter => {
-                                style = if background.is_dark() {
-                                    style.cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Constructor => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Namespace => {
-                                style = if background.is_dark() {
-                                    style.bright_green()
-                                } else {
-                                    style.green()
-                                };
-                            }
-                            AtomKind::Decorator => {
-                                style = if background.is_dark() {
-                                    style.yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Label => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::TreeSitterError => style = style.purple(),
-                            AtomKind::Normal => {}
-                        }
-                    }
+                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
                 }
 
-                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed).bold();
+                style = novel_style(
+                    style,
+                    side,
+                    background,
+                    background_diff_colors,
+                    rgb_added,
+                    rgb_removed,
+                )
+                .bold();
 
                 // Underline novel words inside comments in code, but
                 // don't apply it to every single line in plaintext.
@@ -1116,123 +968,31 @@ pub(crate) fn color_positions(
                     style = style.underline();
                 }
 
-                if !background_diff_colors && syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+                if !background_diff_colors
+                    && syntax_highlight
+                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
+                {
                     style = style.italic();
                 }
             }
             MatchKind::UnchangedPartOfNovelItem { highlight, .. } => {
-                // Apply syntax highlighting foreground colors when using background diff colors
                 if background_diff_colors && syntax_highlight {
-                    if let TokenKind::Atom(atom_kind) = highlight {
-                        match atom_kind {
-                            AtomKind::String(StringKind::StringLiteral) => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::String(StringKind::Text) => {}
-                            AtomKind::Comment => {
-                                style = style.italic();
-                                style = if background.is_dark() {
-                                    style.bright_blue()
-                                } else {
-                                    style.blue()
-                                };
-                            }
-                            AtomKind::Keyword | AtomKind::Type => {
-                                style = style.bold();
-                            }
-                            AtomKind::Function => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Property => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Number => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Constant => {
-                                style = if background.is_dark() {
-                                    style.bright_magenta()
-                                } else {
-                                    style.magenta()
-                                };
-                            }
-                            AtomKind::Variable => {}
-                            AtomKind::Operator => {}
-                            AtomKind::Punctuation => {}
-                            AtomKind::Tag => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Attribute => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Parameter => {
-                                style = if background.is_dark() {
-                                    style.cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::Constructor => {
-                                style = if background.is_dark() {
-                                    style.bright_yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Namespace => {
-                                style = if background.is_dark() {
-                                    style.bright_green()
-                                } else {
-                                    style.green()
-                                };
-                            }
-                            AtomKind::Decorator => {
-                                style = if background.is_dark() {
-                                    style.yellow()
-                                } else {
-                                    style.yellow()
-                                };
-                            }
-                            AtomKind::Label => {
-                                style = if background.is_dark() {
-                                    style.bright_cyan()
-                                } else {
-                                    style.cyan()
-                                };
-                            }
-                            AtomKind::TreeSitterError => style = style.purple(),
-                            AtomKind::Normal => {}
-                        }
-                    }
+                    style = maybe_syntax_style(style, highlight, background, syntax_highlight);
                 }
 
-                style = novel_style(style, side, background, background_diff_colors, rgb_added, rgb_removed);
+                style = novel_style(
+                    style,
+                    side,
+                    background,
+                    background_diff_colors,
+                    rgb_added,
+                    rgb_removed,
+                );
 
-                if !background_diff_colors && syntax_highlight && matches!(highlight, TokenKind::Atom(AtomKind::Comment)) {
+                if !background_diff_colors
+                    && syntax_highlight
+                    && matches!(highlight, TokenKind::Atom(AtomKind::Comment))
+                {
                     style = style.italic();
                 }
             }
